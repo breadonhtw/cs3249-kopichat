@@ -53,6 +53,11 @@ export function isToggleKey(e: { key: string; ctrlKey?: boolean; metaKey?: boole
 
 const stateWord = (state: DimState['state']) => String(state).replaceAll('_', ' ');
 
+/** A check name as words: `own_recurrence` reads "own recurrence". */
+export function checkName(check: string): string {
+  return check.replaceAll('_', ' ');
+}
+
 type Props = {
   state: ServerState | null;
   previous: ServerState | null;
@@ -90,7 +95,7 @@ export function SystemView({ state, previous, open, counter = '', aggregate = nu
                 {Object.entries(dim.checks ?? {}).map(([check, span]) => (
                   <p className="sysview__line" key={check}>
                     <span className={cell(`${key}.checks.${check}`)}>
-                      {check}: {span === null || span === undefined ? 'not given' : `“${span}”`}
+                      {checkName(check)}: {span === null || span === undefined ? 'not given' : `“${span}”`}
                     </span>
                   </p>
                 ))}

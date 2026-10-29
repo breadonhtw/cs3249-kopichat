@@ -81,3 +81,17 @@ test('chipAction maps labels to actions and no-op chips to null', () => {
     assert.equal(chipAction(l), null);
   }
 });
+
+test('fallback sends the written answers in one turn, as an action', async () => {
+  const { f, calls } = fakeFetch({ '/api/turn': () => ({ json: { phase: 'summary' } }) });
+  const r = await createClient(f, 'sid').fallback({ q1_what: 'The A2 was full', q3_effect: 'late' });
+  assert.equal(r.phase, 'summary');
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body, { session_id: 'sid', action: 'fallback', answers: { q1_what: 'The A2 was full', q3_effect: 'late' } });
+});
+
+test('an empty contact is sent as it is, to clear the stored one', async () => {
+  const { f, calls } = fakeFetch({ '/api/contact': () => ({ json: { ok: true } }) });
+  await createClient(f, 'sid').contact('');
+  assert.deepEqual(calls[0].body, { session_id: 'sid', contact: '' });
+});

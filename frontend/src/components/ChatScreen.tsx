@@ -84,14 +84,13 @@ export function ChatScreen({ session, readOnly = false, onCheckSummary }: Props)
       ) : fallback ? (
         <FallbackForm
           answers={answers}
-          posted={state.fallbackPosted}
           busy={state.busy}
           onChange={(i, text) => setAnswers(answers.map((a, j) => (j === i ? text : a)))}
           onCancel={() => {
             setOpen(false);
             setClosedAt(state.unavailableStreak);
           }}
-          onSubmit={(items) => void session.submitFallback(items)}
+          onSubmit={(written) => void session.submitFallback(written)}
         />
       ) : (
         <div className="dock" ref={dockRef}>

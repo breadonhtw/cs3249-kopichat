@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diffCells, isEditableTarget, isToggleKey, nextLine, storedLine } from '../src/components/SystemView.tsx';
+import { checkName, diffCells, isEditableTarget, isToggleKey, nextLine, storedLine } from '../src/components/SystemView.tsx';
 
 test('changed cells are named', () => {
   const prev = { dims: { q1_what: { score: 1, state: 'provided', checks: { place: null } } } } as any;
@@ -51,4 +51,10 @@ test('the toggle key is a plain s in either case, not held, not part of a shortc
   assert.equal(isToggleKey({ key: 's', metaKey: true }), false);
   assert.equal(isToggleKey({ key: 's', altKey: true }), false);
   assert.equal(isToggleKey({ key: 's', repeat: true }), false);
+});
+
+test('check names read as words', () => {
+  assert.equal(checkName('own_recurrence'), 'own recurrence');
+  assert.equal(checkName('observed_vantage'), 'observed vantage');
+  assert.equal(checkName('place'), 'place');
 });

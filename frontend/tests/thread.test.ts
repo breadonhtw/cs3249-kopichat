@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderItemClass } from '../src/components/Thread.tsx';
 import { chipRow, DEFAULT_CHIPS } from '../src/chips.ts';
-import { failureEvent, initialSession, isCrisis, sessionReducer } from '../src/useSession.ts';
+import { failureEvent, initialSession, isCrisis, messageOf, SESSION_ENDED_TEXT, sessionReducer } from '../src/useSession.ts';
+import { fallbackAnswers } from '../src/components/FallbackForm.tsx';
 import { shouldSend } from '../src/composerKeys.ts';
 import { ApiError } from '../src/api/client.ts';
 import { closedLine } from '../src/closedLine.ts';
@@ -69,7 +70,7 @@ test('a rejected request shows its detail, never counts toward the fallback and 
 });
 
 test('failures are classified: 4xx rejected, network and 5xx unreachable', () => {
-  assert.deepEqual(failureEvent(new ApiError(404, 'Unknown session.')), { type: 'rejected', message: 'Unknown session.' });
+  assert.deepEqual(failureEvent(new ApiError(404, 'Nothing has been submitted for this session.')), { type: 'rejected', message: 'Nothing has been submitted for this session.' });
   assert.deepEqual(failureEvent(new ApiError(503, 'x')), { type: 'unreachable' });
   assert.deepEqual(failureEvent(new TypeError('Failed to fetch')), { type: 'unreachable' });
 });
@@ -91,10 +92,33 @@ test('discardStudent removes only the latest matching student item', () => {
   assert.deepEqual(s.thread, [{ role: 'student', text: 'a' }, { role: 'agent', text: 'Q' }, { role: 'status', text: 'x' }]);
 });
 
-test('posted fallback answers are remembered by index', () => {
-  const a = sessionReducer(initialSession, { type: 'fallbackPosted', index: 2 });
-  const b = sessionReducer(a, { type: 'fallbackPosted', index: 0 });
-  assert.deepEqual(b.fallbackPosted, [2, 0]);
+test('an unknown session on any call reads as an ended session, and never counts toward the fallback', () => {
+  const ended = new ApiError(404, 'Unknown session.');
+  assert.equal(SESSION_ENDED_TEXT, 'This session ended. Reload to start again.');
+  assert.deepEqual(failureEvent(ended), { type: 'rejected', message: SESSION_ENDED_TEXT });
+  assert.equal(messageOf(ended), SESSION_ENDED_TEXT);
+  const s = sessionReducer({ ...initialSession, phase: 'chat', unavailableStreak: 1 }, failureEvent(ended));
+  assert.equal(s.unavailableStreak, 1);
+  assert.equal(s.phase, 'chat');
+  assert.deepEqual(s.thread.at(-1), { role: 'status', text: SESSION_ENDED_TEXT });
+});
+
+test('fallback answers are keyed by dimension, trimmed, with empty boxes left out', () => {
+  assert.deepEqual(fallbackAnswers([' The A2 was full ', '', 'late for class', '   ', 'more buses']), {
+    q1_what: 'The A2 was full',
+    q3_effect: 'late for class',
+    q5_better: 'more buses',
+  });
+  assert.deepEqual(fallbackAnswers(['', '', '', '', '']), {});
+});
+
+test('a fallback result goes to the summary like any turn', () => {
+  const s = sessionReducer({ ...initialSession, phase: 'unavailable', unavailableStreak: 2 }, {
+    type: 'turn',
+    result: { reply: "That's enough for the account. Check the summary before anything is sent.", chips: [], options: [], state: {} as any, counter: '', phase: 'summary', unavailable: false },
+  });
+  assert.equal(s.phase, 'summary');
+  assert.equal(s.unavailableStreak, 0);
 });
 
 const key = (over: Record<string, unknown> = {}) => ({ key: 'Enter', shiftKey: false, keyCode: 13, nativeEvent: { isComposing: false }, ...over }) as any;

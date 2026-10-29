@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiError, chipAction } from './api/client.ts';
 import { DEFAULT_CHIPS } from './chips.ts';
-import type { Aggregate, Consultation, Phase, ServerState, SummaryRow, TurnResult, createClient } from './api/client.ts';
+import type { Aggregate, Consultation, FallbackAnswers, Phase, ServerState, SessionInfo, SummaryRow, TurnResult, createClient } from './api/client.ts';
 
 export type Client = ReturnType<typeof createClient>;
 
 const UNREACHABLE_TEXT = 'Could not reach the assistant. Your message was not sent.';
+/** Shown for any request the server refuses because it no longer knows the session (it restarted or was reset). */
+export const SESSION_ENDED_TEXT = 'This session ended. Reload to start again.';
+
+function sessionEnded(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 404 && e.message === 'Unknown session.';
+}
 
 // Chips with no request behind them: they only put the pending question and the default chips back.
 const RESTORE_LABELS = new Set(['Keep draft', 'Continue without the name', 'Continue with my general experience', 'None of these']);
@@ -37,12 +43,20 @@ export type SessionState = {
   unavailableStreak: number;
   /** A message that did not go through, handed back to the composer. Cleared once the composer has taken it. */
   draft: { text: string } | null;
-  /** Indices of the written fallback's answers the server has already taken. */
-  fallbackPosted: number[];
+  /** The receipt was rebuilt from the server on load: it shows its end state, with no animation replay. */
+  restoredReceipt: boolean;
 };
 
 export type SessionEvent =
-  | { type: 'loaded'; consultation: Consultation; phase?: Phase; serverState?: ServerState }
+  | {
+      type: 'loaded';
+      consultation: Consultation;
+      phase?: Phase;
+      serverState?: ServerState;
+      account?: { id: string; ref_code: string };
+      aggregate?: Aggregate;
+      summary?: SummaryRow[];
+    }
   | { type: 'phase'; phase: Phase }
   | { type: 'overall'; value: string | null }
   | { type: 'student'; text: string }
@@ -53,7 +67,6 @@ export type SessionEvent =
   | { type: 'discardStudent'; text: string }
   | { type: 'restoreDraft'; text: string }
   | { type: 'draftTaken' }
-  | { type: 'fallbackPosted'; index: number }
   | { type: 'restore' }
   | { type: 'summary'; rows: SummaryRow[] }
   | { type: 'submitted'; account: { id: string; ref_code: string }; aggregate: Aggregate }
@@ -76,14 +89,17 @@ export const initialSession: SessionState = {
   error: null,
   unavailableStreak: 0,
   draft: null,
-  fallbackPosted: [],
+  restoredReceipt: false,
 };
 
 export function sessionReducer(state: SessionState, event: SessionEvent): SessionState {
   switch (event.type) {
     case 'loaded': {
       const server = event.serverState ?? null;
-      const phase = event.phase ?? server?.phase ?? 'consent';
+      const account = event.account ?? null;
+      const served = event.phase ?? server?.phase ?? 'consent';
+      // A session that has already sent its account lands on its receipt (or on the withdrawal), never on a fresh journey.
+      const phase: Phase = account !== null && served !== 'deleted' ? 'receipt' : served;
       const overall = typeof server?.overall === 'string' ? server.overall : null;
       // A reload mid-chat: the student's answers and the question still waiting are rebuilt from the server.
       const resumed = phase === 'chat' && server !== null;
@@ -103,6 +119,10 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
         chips: resumed && pending !== null ? DEFAULT_CHIPS : [],
         counter: typeof server?.counter === 'string' ? server.counter : '',
         serverState: server,
+        account,
+        aggregate: account !== null ? (event.aggregate ?? null) : null,
+        summary: account !== null ? (event.summary ?? []) : [],
+        restoredReceipt: account !== null,
       };
     }
     case 'phase':
@@ -155,8 +175,6 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
       return { ...state, draft: { text: event.text } };
     case 'draftTaken':
       return { ...state, draft: null };
-    case 'fallbackPosted':
-      return { ...state, fallbackPosted: [...state.fallbackPosted, event.index] };
     case 'restore': {
       const pending = state.serverState?.pending_question;
       return {
@@ -171,7 +189,7 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
     case 'summary':
       return { ...state, summary: event.rows, error: null };
     case 'submitted':
-      return { ...state, phase: 'receipt', account: event.account, aggregate: event.aggregate, error: null };
+      return { ...state, phase: 'receipt', account: event.account, aggregate: event.aggregate, restoredReceipt: false, error: null };
     case 'error':
       return { ...state, busy: false, error: event.message };
   }
@@ -179,21 +197,37 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
 
 /** What a failed turn request means for the thread: a 4xx is the server refusing (its detail is shown and never counts toward the fallback); anything else is the assistant being out of reach. */
 export function failureEvent(e: unknown): SessionEvent {
+  if (sessionEnded(e)) return { type: 'rejected', message: SESSION_ENDED_TEXT };
   if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { type: 'rejected', message: e.message };
   return { type: 'unreachable' };
 }
 
 // A failed withdraw or contact is shown beside its own control, so the hook hands the message to the caller instead of the global error.
 function actionMessage(e: unknown): string {
+  if (sessionEnded(e)) return SESSION_ENDED_TEXT;
   return e instanceof ApiError ? e.message : 'Could not reach the assistant.';
 }
 
-function messageOf(e: unknown): string {
+export function messageOf(e: unknown): string {
+  if (sessionEnded(e)) return SESSION_ENDED_TEXT;
   if (e instanceof ApiError) return e.message;
   return 'Could not reach the server. Check your connection and try again.';
 }
 
 type Emit = (event: SessionEvent) => void;
+
+/** The load event for a session, with the receipt's account, aggregate and summary when it has already sent one. */
+export function loadedEvent(info: SessionInfo): SessionEvent {
+  return {
+    type: 'loaded',
+    consultation: info.consultation,
+    phase: info.state.phase,
+    serverState: info.state,
+    account: info.account,
+    aggregate: info.aggregate,
+    summary: info.summary_rows,
+  };
+}
 
 export function useSession(client: Client) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
@@ -231,8 +265,7 @@ export function useSession(client: Client) {
 
   const load = useCallback(
     (ignore?: () => boolean, force = false) => run(async (emit) => {
-      const info = await client.session();
-      emit({ type: 'loaded', consultation: info.consultation, phase: info.state.phase, serverState: info.state });
+      emit(loadedEvent(await client.session()));
     }, ignore, force),
     [client, run],
   );
@@ -302,14 +335,17 @@ export function useSession(client: Client) {
       dispatch({ type: 'student', text });
       return turn(text);
     },
-    /** The written fallback: each unposted answer is a turn in order, then the summary. Stops at the first the server could not take; posted answers are remembered. */
-    submitFallback: (items: { index: number; text: string }[]) => run(async (emit) => {
-      for (const { index, text } of items) {
-        emit({ type: 'student', text });
-        if (!(await deliver(emit, text))) return;
-        emit({ type: 'fallbackPosted', index });
+    /** The written fallback: one request, no model. The answers join the thread once the server has taken them. */
+    submitFallback: (answers: FallbackAnswers) => run(async (emit) => {
+      let result: TurnResult;
+      try {
+        result = await client.fallback(answers);
+      } catch (e) {
+        emit(failureEvent(e));
+        return;
       }
-      await deliver(emit, undefined, 'finish');
+      for (const text of Object.values(answers)) if (text) emit({ type: 'student', text });
+      emit({ type: 'turn', result });
     }),
     draftTaken,
     /** The student closes the consultation without deleting; nothing else is sent. */
@@ -357,8 +393,7 @@ export function useSession(client: Client) {
     },
     restart: () => run(async (emit) => {
       await client.reset();
-      const info = await client.session();
-      emit({ type: 'loaded', consultation: info.consultation, phase: info.state.phase, serverState: info.state });
+      emit(loadedEvent(await client.session()));
     }),
   };
 }

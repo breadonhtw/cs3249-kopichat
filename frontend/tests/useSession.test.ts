@@ -28,3 +28,38 @@ test('previousServerState holds the prior state after a turn', () => {
   assert.equal(b.previousServerState, first);
   assert.equal(b.serverState, second);
 });
+
+test('loading a session that has sent its account lands on the settled receipt', () => {
+  const account = { id: 'a', ref_code: 'KR-0147' };
+  const aggregate = { contributors: 7, seeds: 6 } as any;
+  const summary = [{ key: 'overall', label: 'Overall view', text: 'Negatively', status: 'quoted' as const }];
+  const s = sessionReducer(initialSession, {
+    type: 'loaded',
+    consultation: {} as any,
+    phase: 'receipt',
+    serverState: { phase: 'receipt', approved: true },
+    account,
+    aggregate,
+    summary,
+  });
+  assert.equal(s.phase, 'receipt');
+  assert.deepEqual(s.account, account);
+  assert.equal(s.aggregate, aggregate);
+  assert.deepEqual(s.summary, summary);
+  assert.equal(s.restoredReceipt, true);
+});
+
+test('a withdrawn account loads as withdrawn, and a fresh session has no receipt', () => {
+  const w = sessionReducer(initialSession, { type: 'loaded', consultation: {} as any, phase: 'deleted', account: { id: 'a', ref_code: 'KR-1' } });
+  assert.equal(w.phase, 'deleted');
+  assert.notEqual(w.account, null);
+  const fresh = sessionReducer({ ...initialSession, account: { id: 'x', ref_code: 'KR-2' } }, { type: 'loaded', consultation: {} as any, phase: 'consent' });
+  assert.equal(fresh.account, null);
+  assert.equal(fresh.restoredReceipt, false);
+  assert.deepEqual(fresh.summary, []);
+});
+
+test('a live submission plays the receipt', () => {
+  const s = sessionReducer({ ...initialSession, phase: 'summary', restoredReceipt: true }, { type: 'submitted', account: { id: 'a', ref_code: 'KR-1' }, aggregate: {} as any });
+  assert.equal(s.restoredReceipt, false);
+});

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Aggregate, Consultation, SummaryRow } from '../api/client.ts';
 import { consentRows } from '../copy.ts';
 import { planBeats, reducedMotion, type BeatName } from '../motion.ts';
+import { awaitingReview, denominatorLine, placementLines } from '../receiptLines.ts';
 import { themeLabel } from '../themeLabel.ts';
 import { Counter } from './Counter.tsx';
 import { InlineConfirm } from './InlineConfirm.tsx';
@@ -14,20 +15,17 @@ type Props = {
   aggregate: Aggregate | null;
   summary: SummaryRow[];
   withdrawn: boolean;
+  /** False when the receipt was rebuilt on a reload: it shows its end state at once. */
+  replay?: boolean;
   busy: boolean;
   onWithdraw: (onError: (message: string) => void) => Promise<boolean>;
   onContact: (contact: string, onError: (message: string) => void) => Promise<boolean>;
   onDone: () => void;
 };
 
-function others(count: number): string {
-  if (count <= 1) return 'You are the first to report this';
-  return `You and ${count - 1} ${count - 1 === 1 ? 'other' : 'others'}`;
-}
-
-export function Receipt({ consultation, account, aggregate, summary, withdrawn, busy, onWithdraw, onContact, onDone }: Props) {
-  // Nothing to play when there is no aggregate; reduced motion shows the end state at once.
-  const [settled, setSettled] = useState(() => aggregate === null || reducedMotion());
+export function Receipt({ consultation, account, aggregate, summary, withdrawn, replay = true, busy, onWithdraw, onContact, onDone }: Props) {
+  // Nothing to play when there is no aggregate; reduced motion and a reloaded receipt show the end state at once.
+  const [settled, setSettled] = useState(() => aggregate === null || !replay || reducedMotion());
   const [stage, setStage] = useState(0);
   const names = useRef<BeatName[]>([]);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -51,16 +49,18 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
   const [confirming, setConfirming] = useState(false);
   const [wantsUpdate, setWantsUpdate] = useState(false);
   const [contact, setContact] = useState('');
-  // "Contact saved." is written only after the server has taken the contact. Errors sit under the control that failed.
+  // "Contact saved." is written only after the server has taken the contact, and "Contact removed." only after it has
+  // let it go. `stored` says the server holds one, so unticking the update box takes it back. Errors sit under the controls.
   const [saved, setSaved] = useState(false);
+  const [stored, setStored] = useState(false);
+  const [removed, setRemoved] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
-  const status = withdrawn ? 'Withdrawn. Your account will not be included.' : saved ? 'Contact saved.' : '';
+  const status = withdrawn ? 'Withdrawn. Your account will not be included.' : saved ? 'Contact saved.' : removed ? 'Contact removed.' : '';
 
   const youExcerpt = youExcerptOf(summary);
-  const sent = summary.filter((r) => r.key !== 'overall');
   const count = aggregate?.group.count ?? 1;
-  const grouped = aggregate !== null && aggregate.group.name !== null;
+  const grouped = aggregate !== null && aggregate.group.name !== null && !awaitingReview(aggregate);
   const playing = !settled && aggregate !== null;
   const counterFrom = aggregate === null ? 0 : Math.max(0, aggregate.contributors - 1);
   const counterTo = aggregate === null ? 0 : aggregate.contributors;
@@ -79,11 +79,11 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
         {account && <p className="receipt__code">{account.ref_code}</p>}
       </header>
 
-      {sent.length > 0 && (
+      {summary.length > 0 && (
         <section className="receipt__card" aria-labelledby="receipt-sent">
           <h2 id="receipt-sent">What was sent</h2>
           <ul className="summary__rows">
-            {sent.map((row) => {
+            {summary.map((row) => {
               const shown = rowDisplay(row);
               return (
                 <li key={row.key} className="summary__row">
@@ -109,12 +109,13 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
             <h2 id="receipt-sits">Where your account sits</h2>
             <div className="receipt__facts">
               <p className="body">Theme: {themeLabel(aggregate.theme)}</p>
-              <p className="body">{grouped ? `Group: ${aggregate.group.name}` : 'No group yet'}</p>
-              <p className="body">{others(count)}</p>
+              {placementLines(aggregate).map((line) => (
+                <p key={line} className="body">{line}</p>
+              ))}
             </div>
             <div className="receipt__count">
               <Counter from={counterFrom} to={reached('writeIn') ? counterTo : counterFrom} play={counterPlays} />
-              <p className="muted">({aggregate.seeds} fictional seed accounts + you)</p>
+              <p className="muted">{denominatorLine(aggregate)}</p>
             </div>
             <Ledger
               aggregate={aggregate}
@@ -157,7 +158,25 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
         {!withdrawn && (
           <>
             <label className="check">
-              <input type="checkbox" checked={wantsUpdate} onChange={(e) => setWantsUpdate(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={wantsUpdate}
+                disabled={busy}
+                onChange={async (e) => {
+                  const on = e.target.checked;
+                  setWantsUpdate(on);
+                  setSaved(false);
+                  setRemoved(false);
+                  setContactError(null);
+                  if (on || !stored) return;
+                  // Unticking takes the request back: the stored contact is cleared on the server.
+                  if (await onContact('', setContactError)) {
+                    setStored(false);
+                    setContact('');
+                    setRemoved(true);
+                  }
+                }}
+              />
               <span>Send me the update when it's published</span>
             </label>
             {wantsUpdate && (
@@ -183,16 +202,19 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
                   disabled={busy || contact.trim() === ''}
                   onClick={async () => {
                     setSaved(false);
+                    setRemoved(false);
                     setContactError(null);
-                    setSaved(await onContact(contact.trim(), setContactError));
+                    const ok = await onContact(contact.trim(), setContactError);
+                    setSaved(ok);
+                    if (ok) setStored(true);
                   }}
                 >
                   Save contact
                 </button>
-                {contactError && <p className="muted">{contactError}</p>}
                 <p className="muted">Your contact detail is stored apart from your replies and deleted after the final update.</p>
               </div>
             )}
+            {contactError && <p className="muted">{contactError}</p>}
           </>
         )}
 

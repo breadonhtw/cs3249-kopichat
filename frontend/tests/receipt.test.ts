@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ledgerRows, youExcerptOf } from '../src/components/Ledger.tsx';
 import { themeLabel } from '../src/themeLabel.ts';
+import { denominatorLine, placementLines } from '../src/receiptLines.ts';
 
 const agg = {
   theme: 'transport',
@@ -41,4 +42,32 @@ test('theme labels', () => {
   assert.equal(themeLabel('other'), 'Other');
   assert.equal(themeLabel('needs_review'), 'Needs review');
   assert.equal(themeLabel('unheard-of'), 'Other');
+});
+
+test('the denominator names seeds, other real accounts and you', () => {
+  assert.equal(denominatorLine({ contributors: 7, seeds: 6 }), '(6 fictional seed accounts + you)');
+  assert.equal(denominatorLine({ contributors: 8, seeds: 6 }), '(6 fictional seed accounts + 1 other + you)');
+  assert.equal(denominatorLine({ contributors: 10, seeds: 6 }), '(6 fictional seed accounts + 3 others + you)');
+});
+
+test('an account awaiting review claims no group and no first report', () => {
+  const fellBack = { theme: 'needs_review', needs_review: true, group: { name: null, count: 1, others: [] } } as any;
+  assert.deepEqual(placementLines(fellBack), ['Not grouped yet. A reviewer will place it.']);
+  const unsure = { theme: 'transport', needs_review: true, group: { name: null, count: 1, others: [] } } as any;
+  assert.deepEqual(placementLines(unsure), ['Not grouped yet. A reviewer will place it.']);
+  for (const lines of [placementLines(fellBack), placementLines(unsure)]) {
+    assert.ok(!lines.some((l) => l.includes('first to report')));
+  }
+});
+
+test('a grouped account names its group and the others in it', () => {
+  assert.deepEqual(placementLines(agg), ['Group: Morning boarding at Kent Ridge MRT', 'You and 2 others']);
+  const pending = { theme: 'transport', needs_review: false, group: { name: 'New group, pending review', pending: true, count: 1, others: [] } } as any;
+  assert.deepEqual(placementLines(pending), ['Group: New group, pending review', 'You are the first to report this']);
+});
+
+test('a pending group carries its pending label into the ledger', () => {
+  const pending = { ...agg, group: { name: 'New group, pending review', pending: true, count: 1, others: [] } };
+  const rows = ledgerRows(pending, 'x');
+  assert.deepEqual(rows.map((r) => r.kind), ['you', 'differing']);
 });

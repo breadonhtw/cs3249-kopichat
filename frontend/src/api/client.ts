@@ -30,7 +30,15 @@ export type Consultation = {
   overall_options: string[];
 };
 
-export type SessionInfo = { consultation: Consultation; state: ServerState; llm: string };
+/** A session that has already sent its account also carries what the receipt needs. */
+export type SessionInfo = {
+  consultation: Consultation;
+  state: ServerState;
+  llm: string;
+  account?: { id: string; ref_code: string };
+  aggregate?: Aggregate;
+  summary_rows?: SummaryRow[];
+};
 
 export type TurnResult = {
   reply: string;
@@ -53,13 +61,19 @@ export type SummaryRow = {
 export type Aggregate = {
   provisional: true;
   theme: string;
-  group: { name: string | null; count: number; others: { id: string; excerpt: string }[] };
+  /** The account is waiting for a reviewer: classification was unsure or fell back. */
+  needs_review?: boolean;
+  /** `pending`: a new group a reviewer has not named yet; its name reads "New group, pending review". */
+  group: { name: string | null; pending?: boolean; count: number; others: { id: string; excerpt: string }[] };
   contributors: number;
   seeds: number;
   differing: { id: string; excerpt: string; note: string }[];
   coverage: { how_often: { said: number; of: number } };
   closing_line: string;
 };
+
+/** The written fallback's answers, by dimension. Empty answers are left out. */
+export type FallbackAnswers = Partial<Record<'q1_what' | 'q2_often' | 'q3_effect' | 'q4_basis' | 'q5_better', string>>;
 
 export type SubmitResult = { account: { id: string; ref_code: string }; aggregate: Aggregate };
 
@@ -137,6 +151,8 @@ export function createClient(fetchImpl: typeof fetch = fetch, sessionId: string 
       if (action !== undefined) body.action = action;
       return post<TurnResult>('/api/turn', body);
     },
+    /** The written fallback in one request: the answers go straight to the summary, with no model involved. */
+    fallback: (answers: FallbackAnswers) => post<TurnResult>('/api/turn', { action: 'fallback', answers }),
     summary: () => send<{ rows: SummaryRow[]; approved: boolean }>('GET', summaryUrl),
     editSummary: (key: string, text: string) => send<{ rows: SummaryRow[] }>('PATCH', summaryUrl, { key, text }),
     // Only the summary screen's approve handler may call this.

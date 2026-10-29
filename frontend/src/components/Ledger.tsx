@@ -1,4 +1,5 @@
 import type { Aggregate, SummaryRow } from '../api/client.ts';
+import { awaitingReview } from '../receiptLines.ts';
 import { themeLabel } from '../themeLabel.ts';
 
 const EXCERPT_MAX = 60;
@@ -50,7 +51,8 @@ function Row({ row, reached }: { row: LedgerRow; reached: Reached }) {
 export function Ledger({ aggregate, youExcerpt, play, reached }: Props) {
   const now: Reached = play && reached ? reached : { writeIn: true, bracket: true, kept: true };
   const rows = ledgerRows(aggregate, youExcerpt);
-  const grouped = aggregate.group.name !== null;
+  // An account awaiting review is not shown inside a group, whatever the classifier proposed.
+  const grouped = aggregate.group.name !== null && !awaitingReview(aggregate);
   const inGroup = rows.filter((r) => r.kind !== 'differing');
   const differing = rows.filter((r) => r.kind === 'differing');
   const count = aggregate.group.count;
