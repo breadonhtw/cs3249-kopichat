@@ -94,14 +94,20 @@ def test_unclear_option_is_taken_as_the_students_message(fake):
     fake({"route": "unclear", "unclear_options": ["the bus", "the food court"]}, EXTRACTIONS[0])
     st = p.new_state("c"); run(st, action="start_chat"); run(st, "it was bad")
     r = run(st, action="option:0")
-    assert st["transcript"] == ["it was bad", "the bus"]
+    assert st["transcript"] == ["the bus"]
     assert r["options"] == [] and st["last_options"] == []
 
 def test_unclear_none_of_these_reasks_without_llm(fake):
     fake({"route": "unclear", "unclear_options": ["the bus"]})
     st = p.new_state("c"); run(st, action="start_chat"); run(st, "it was bad")
     r = run(st, action="option:1")
-    assert r["reply"] == c.OPENING and st["follow_ups_used"] == 0 and st["transcript"] == ["it was bad"]
+    assert r["reply"] == c.OPENING and st["follow_ups_used"] == 0 and st["transcript"] == []
+
+def test_unclear_drops_options_with_banned_words(fake):
+    fake({"route": "unclear", "unclear_options": ["the bus", "sorry about the food court", "the lift because"]})
+    st = p.new_state("c"); run(st, action="start_chat")
+    r = run(st, "it was bad")
+    assert r["options"] == ["the bus", c.NONE_OF_THESE]
 
 def test_unclear_without_options_reasks(fake):
     fake({"route": "unclear"})
@@ -152,6 +158,52 @@ def test_no_llm_leaves_state_untouched():
     r = run(st, "x")
     assert r["reply"] == c.NO_LLM_MESSAGE and json.dumps(st) == before
 
+def test_non_continue_messages_never_enter_the_transcript(fake, monkeypatch):
+    sent = []
+    outs = [{"route": "out_of_scope_person", "checks": {"q1_what": {"persons": "Prof Tan"}}},
+            {"route": "out_of_scope_person"}, {"route": "meta_why"}, {"route": "meta_anonymous"},
+            {"route": "stop"}, {"route": "unclear"}, EXTRACTIONS[0]]
+    fake(*outs)
+    real = llm.chat_json
+    def spy(system, messages, max_tokens=800):
+        sent.append(" ".join(m["content"] for m in messages))
+        return real(system, messages, max_tokens)
+    monkeypatch.setattr(llm, "chat_json", spy)
+    st = p.new_state("c"); run(st, action="start_chat")
+    run(st, "Prof Tan was rude to me")
+    for line in ["Continue without the name", "why?", "anon?", "stop", "hm"]: run(st, line)
+    assert st["transcript"] == []
+    r = run(st, STUDENT[0])
+    assert st["transcript"] == [STUDENT[0]] and r["reply"].startswith("Packed buses")
+    assert "Prof Tan" in sent[0] and "Prof Tan" not in sent[-1] and "Continue without the name" not in sent[-1]
+
+def test_llm_failure_after_continue_keeps_transcript(fake):
+    fake(EXTRACTIONS[0], llm.LLMError("timeout"))
+    st = p.new_state("c"); run(st, action="start_chat"); run(st, STUDENT[0])
+    run(st, STUDENT[1])
+    assert st["transcript"] == [STUDENT[0]]
+
+def test_crisis_pauses_actions_too_except_delete(fake):
+    fake({"route": "crisis"}, EXTRACTIONS[0])
+    st = p.new_state("c"); run(st, action="start_chat"); run(st, "x")
+    before = json.dumps(st)
+    for a in ["skip", "why", "anonymous", "stop", "start_chat", "option:0"]:
+        r = run(st, action=a)
+        assert r["reply"] == c.CRISIS_MESSAGE and json.dumps(st) == before
+    assert st["follow_ups_used"] == 0
+    assert run(st, action="delete")["phase"] == "deleted" and st["stopped"] is None
+
+def test_messages_outside_chat_phase_run_no_extraction(fake):
+    fake()  # any LLM call would pop from an empty list and fail
+    st = p.new_state("c")
+    assert run(st, "hello")["reply"] == ""
+    run(st, action="start_chat"); st["phase"] = "summary"; st["pending_question"] = None
+    before = json.dumps(st)
+    r = run(st, "one more thing")
+    assert r["reply"] == c.SUFFICIENT_MESSAGE and json.dumps(st) == before
+    st["phase"] = "deleted"
+    assert run(st, "again")["reply"] == "" and json.dumps(st) == before.replace('"summary"', '"deleted"')
+
 def test_delete_resets(fake):
     fake(EXTRACTIONS[0])
     st = p.new_state("c"); run(st, action="start_chat"); run(st, STUDENT[0])
@@ -169,6 +221,7 @@ def test_turn_is_logged_when_session_id_given(fake, monkeypatch, tmp_path):
     rec = json.loads(lines[0])
     assert {"transcript", "extraction", "scores", "reply"} <= set(rec)
     assert rec["transcript"] == [STUDENT[0]] and rec["extraction"]["route"] == "continue"
+    assert rec["raw"] == EXTRACTIONS[0]
     assert rec["scores"]["q4_basis"] == 2 and rec["reply"].startswith("Packed buses")
     run(st, STUDENT[1])  # no session_id: nothing more is written
     assert len((tmp_path / "t.jsonl").read_text().splitlines()) == 1

@@ -64,7 +64,7 @@ def _reset(state: dict) -> dict:
     return _result(state, "", chips=[])
 
 
-def _log(session_id, state, message, action, extraction, reply, error=None) -> None:
+def _log(session_id, state, message, action, extraction, reply, raw=None, error=None) -> None:
     if session_id is None:
         return
     record = {
@@ -72,6 +72,7 @@ def _log(session_id, state, message, action, extraction, reply, error=None) -> N
         "action": action,
         "message": message,
         "transcript": list(state["transcript"]),
+        "raw": raw,
         "extraction": extraction,
         "scores": {dim: d["score"] for dim, d in state["dims"].items()},
         "reply": reply,
@@ -88,16 +89,20 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
            session_id: str | None = None) -> dict:
     state.setdefault("last_options", [])
 
+    if action == "delete":
+        res = _reset(state)
+        _log(session_id, state, message, action, None, res["reply"])
+        return res
+    # After a crisis the questions stay paused: only delete does anything.
+    if state["stopped"] == "crisis":
+        return _result(state, content.CRISIS_MESSAGE, chips=[])
+
     # Actions that need no LLM.
     if action == "start_chat":
         state["phase"] = "chat"
         state["pending_question"] = content.OPENING
         state["last_target"] = None
         res = _result(state, content.OPENING)
-        _log(session_id, state, message, action, None, res["reply"])
-        return res
-    if action == "delete":
-        res = _reset(state)
         _log(session_id, state, message, action, None, res["reply"])
         return res
     if action in ("why", "anonymous", "stop", "skip"):
@@ -115,22 +120,25 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
     if message is None or not message.strip():
         return _result(state, state["pending_question"] or "")
 
-    if state["stopped"] == "crisis":
-        return _result(state, content.CRISIS_MESSAGE, chips=[])
+    # Only the chat phase takes messages; elsewhere nothing is extracted.
+    if state["phase"] == "summary":
+        return _result(state, content.SUFFICIENT_MESSAGE)
+    if state["phase"] != "chat":
+        return _result(state, state["pending_question"] or "")
     if not llm.enabled():
         return _result(state, content.NO_LLM_MESSAGE)
 
-    state["transcript"].append(message)
+    # The message joins the transcript only once the route is known to be "continue":
+    # a name, a crisis disclosure or a meta question must not be re-sent to the LLM later.
     try:
-        ex = extract.extract(state["transcript"], today)
+        ex, raw = extract.extract_with_raw(state["transcript"] + [message], today)
     except llm.LLMError as e:
-        state["transcript"].pop()
         res = _result(state, content.UNAVAILABLE_MESSAGE)
         _log(session_id, state, message, action, None, res["reply"], error=str(e))
         return res
 
-    res = _route(state, ex)
-    _log(session_id, state, message, action, ex, res["reply"])
+    res = _route(state, ex, message)
+    _log(session_id, state, message, action, ex, res["reply"], raw=raw)
     return res
 
 
@@ -157,7 +165,7 @@ def _action_reply(state: dict, action: str) -> dict:
     return _result(state, _ask_next(state, content.SKIP_ACK))
 
 
-def _route(state: dict, ex: dict) -> dict:
+def _route(state: dict, ex: dict, message: str) -> dict:
     route = ex["route"]
     state["last_options"] = []
     if route == "crisis":
@@ -174,11 +182,13 @@ def _route(state: dict, ex: dict) -> dict:
     if route == "stop":
         return _result(state, content.STOP_MESSAGE, chips=list(STOP_CHIPS))
     if route == "unclear":
-        options = ex["unclear_options"]
+        options = [o for o in ex["unclear_options"]
+                   if not any(word in o.lower() for word in extract.ACK_BANNED)]
         if not options:
             return _result(state, state["pending_question"] or "")
         state["last_options"] = options
         return _result(state, f"{content.UNCLEAR_PREFIX}:", chips=[], options=options + [content.NONE_OF_THESE])
 
+    state["transcript"].append(message)
     policy.apply_extraction(state, ex)
     return _result(state, _ask_next(state, ex["ack"]))

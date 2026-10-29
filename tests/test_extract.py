@@ -120,3 +120,12 @@ def test_extract_happy_path(monkeypatch):
     assert "Today is 2026-10-28." in content and T[0] in content and T[1] in content
     assert out["checks"]["q1_what"]["place"] == "Kent Ridge MRT"
     assert out["checks"]["q1_what"]["persons"] is None
+
+
+def test_extract_with_raw_returns_validated_and_raw(monkeypatch):
+    raw = {"checks": {"q1_what": {"conditions": "packed", "place": "not in transcript"}}, "route": "continue"}
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **k: raw)
+    out, got = x.extract_with_raw(T, "2026-10-28")
+    assert got is raw
+    assert out["checks"]["q1_what"]["conditions"] == "packed" and out["checks"]["q1_what"]["place"] is None
+    assert x.extract(T, "2026-10-28") == out

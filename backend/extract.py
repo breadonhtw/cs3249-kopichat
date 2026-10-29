@@ -86,8 +86,15 @@ def validate_extraction(raw: dict, transcript: list[str]) -> dict:
     }
 
 
-def extract(transcript: list[str], today: str) -> dict:
-    """One LLM call over the whole transcript, validated. Raises llm.LLMError if the call fails."""
+def extract_with_raw(transcript: list[str], today: str) -> tuple[dict, dict]:
+    """One LLM call over the whole transcript. Returns (validated extraction, raw LLM output).
+
+    Raises llm.LLMError if the call fails."""
     messages = [{"role": "user", "content": prompts.extract_turn(transcript, today)}]
     raw = llm.chat_json(prompts.EXTRACT_SYSTEM, messages, max_tokens=EXTRACT_MAX_TOKENS)
-    return validate_extraction(raw, transcript)
+    return validate_extraction(raw, transcript), raw
+
+
+def extract(transcript: list[str], today: str) -> dict:
+    """One LLM call over the whole transcript, validated. Raises llm.LLMError if the call fails."""
+    return extract_with_raw(transcript, today)[0]
