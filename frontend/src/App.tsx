@@ -7,7 +7,12 @@ import { NoticeStrip } from './components/NoticeStrip.tsx';
 import { OverallQuestion } from './components/OverallQuestion.tsx';
 import { Receipt } from './components/Receipt.tsx';
 import { SummaryCard } from './components/SummaryCard.tsx';
+import { isEditableTarget, SystemView } from './components/SystemView.tsx';
+import { useMinWidth } from './useMinWidth.ts';
 import { useSession } from './useSession.ts';
+
+/** The system view needs a laptop; below this width it is not rendered at all. */
+const LAPTOP_PX = 1024;
 
 export function App() {
   const session = useSession(client);
@@ -16,6 +21,9 @@ export function App() {
   // Looking back at the thread from the summary is a client-only view: the server is already at the summary.
   const [lookingBack, setLookingBack] = useState(false);
   const requested = useRef(false);
+  const laptop = useMinWidth(LAPTOP_PX);
+  // The presenter's system view: closed by default, opened with the button or the `s` key.
+  const [systemOpen, setSystemOpen] = useState(false);
   const inSummary = state.phase === 'summary';
   const { loadSummary } = session;
 
@@ -30,6 +38,16 @@ export function App() {
     }
   }, [inSummary, state.busy, loadSummary]);
 
+  useEffect(() => {
+    if (!laptop) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 's' || e.ctrlKey || e.metaKey || e.altKey || e.repeat || isEditableTarget(e.target as HTMLElement | null)) return;
+      setSystemOpen((open) => !open);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [laptop]);
+
   const onOverall = consultation !== null && state.phase === 'overall';
   const onSummary = consultation !== null && inSummary && !lookingBack;
   const onChat = consultation !== null && (state.phase === 'chat' || state.phase === 'unavailable' || (inSummary && lookingBack));
@@ -37,61 +55,79 @@ export function App() {
   const onReceipt = consultation !== null && (state.phase === 'receipt' || (state.phase === 'deleted' && state.account !== null));
   const stepped = onOverall || onChat || onSummary || onReceipt;
 
+  const panelOpen = laptop && systemOpen;
+
   return (
-    <div className="shell">
-      <NoticeStrip
-        line1={stepped ? consultation.title : 'Kopichat'}
-        line2={onOverall ? 'Step 1 of 3' : onChat ? 'Step 2 of 3' : onSummary || onReceipt ? 'Step 3 of 3' : 'NUSSU consultation'}
-        step={onOverall ? 1 : onChat ? 2 : onSummary || onReceipt ? 3 : undefined}
-        fictional
-      />
-      {state.error && !onSummary && (
-        <p className="muted" role="alert">
-          {state.error}
-        </p>
-      )}
-      {state.error && consultation === null && (
-        <button type="button" className="btn btn--retry" onClick={session.retry}>
-          Try again
-        </button>
-      )}
-      <main className="main">
-        {consultation === null ? (
-          !state.error && <p className="muted">Opening the consultation.</p>
-        ) : state.phase === 'consent' ? (
-          <ConsentCard consultation={consultation} busy={state.busy} onAgree={session.consent} />
-        ) : state.phase === 'overall' ? (
-          <OverallQuestion consultation={consultation} busy={state.busy} onAnswer={session.overall} />
-        ) : onSummary ? (
-          <SummaryCard
-            rows={state.summary}
-            busy={state.busy}
-            error={state.error}
-            onEdit={(key, text) => void session.edit(key, text)}
-            onBack={() => setLookingBack(true)}
-            onApprove={() => void session.approve()}
-            onRetry={() => void session.loadSummary()}
-          />
-        ) : onChat ? (
-          <ChatScreen session={session} readOnly={inSummary} onCheckSummary={() => setLookingBack(false)} />
-        ) : onReceipt ? (
-          <Receipt
-            consultation={consultation}
-            account={state.account}
-            aggregate={state.aggregate}
-            summary={state.summary}
-            withdrawn={state.phase === 'deleted'}
-            busy={state.busy}
-            onWithdraw={session.withdraw}
-            onContact={session.contact}
-            onDone={session.close}
-          />
-        ) : state.phase === 'done' ? (
-          <p className="body">{closedLine(consultation.closing_date)}</p>
-        ) : (
-          <p className="body">Phase: {state.phase}</p>
+    <div className="layout">
+      <div className="phone">
+        {laptop && (
+          <div className="phone__bar">
+            <button type="button" className="sysview-toggle" aria-pressed={systemOpen} onClick={() => setSystemOpen((open) => !open)}>
+              System view
+            </button>
+          </div>
         )}
-      </main>
+        <div className="shell">
+          <NoticeStrip
+            line1={stepped ? consultation.title : 'Kopichat'}
+            line2={onOverall ? 'Step 1 of 3' : onChat ? 'Step 2 of 3' : onSummary || onReceipt ? 'Step 3 of 3' : 'NUSSU consultation'}
+            step={onOverall ? 1 : onChat ? 2 : onSummary || onReceipt ? 3 : undefined}
+            fictional
+          />
+          {state.error && !onSummary && (
+            <p className="muted" role="alert">
+              {state.error}
+            </p>
+          )}
+          {state.error && consultation === null && (
+            <button type="button" className="btn btn--retry" onClick={session.retry}>
+              Try again
+            </button>
+          )}
+          <main className="main">
+            {consultation === null ? (
+              !state.error && <p className="muted">Opening the consultation.</p>
+            ) : state.phase === 'consent' ? (
+              <ConsentCard consultation={consultation} busy={state.busy} onAgree={session.consent} />
+            ) : state.phase === 'overall' ? (
+              <OverallQuestion consultation={consultation} busy={state.busy} onAnswer={session.overall} />
+            ) : onSummary ? (
+              <SummaryCard
+                rows={state.summary}
+                busy={state.busy}
+                error={state.error}
+                onEdit={(key, text) => void session.edit(key, text)}
+                onBack={() => setLookingBack(true)}
+                onApprove={() => void session.approve()}
+                onRetry={() => void session.loadSummary()}
+              />
+            ) : onChat ? (
+              <ChatScreen session={session} readOnly={inSummary} onCheckSummary={() => setLookingBack(false)} />
+            ) : onReceipt ? (
+              <Receipt
+                consultation={consultation}
+                account={state.account}
+                aggregate={state.aggregate}
+                summary={state.summary}
+                withdrawn={state.phase === 'deleted'}
+                busy={state.busy}
+                onWithdraw={session.withdraw}
+                onContact={session.contact}
+                onDone={session.close}
+              />
+            ) : state.phase === 'done' ? (
+              <p className="body">{closedLine(consultation.closing_date)}</p>
+            ) : (
+              <p className="body">Phase: {state.phase}</p>
+            )}
+          </main>
+        </div>
+      </div>
+      {panelOpen && (
+        <div className="layout__panel">
+          <SystemView state={state.serverState} previous={state.previousServerState} open counter={state.counter} aggregate={state.aggregate} />
+        </div>
+      )}
     </div>
   );
 }

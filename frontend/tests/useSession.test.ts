@@ -17,3 +17,14 @@ test('error never changes phase', () => {
   const s = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'error', message: 'x' });
   assert.equal(s.phase, 'chat'); assert.equal(s.error, 'x');
 });
+
+test('previousServerState holds the prior state after a turn', () => {
+  const first = { dims: { q1_what: { score: 1 } } } as any;
+  const second = { dims: { q1_what: { score: 2 } } } as any;
+  const turn = (state: any) => ({ type: 'turn' as const, result: { reply: 'Q?', chips: [], options: [], state, counter: '', phase: 'chat' as const, unavailable: false } });
+  const a = sessionReducer({ ...initialSession, phase: 'chat' }, turn(first));
+  assert.equal(a.previousServerState, null);
+  const b = sessionReducer(a, turn(second));
+  assert.equal(b.previousServerState, first);
+  assert.equal(b.serverState, second);
+});

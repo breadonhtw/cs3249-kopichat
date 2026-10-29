@@ -2,8 +2,25 @@
 
 export type Phase = 'consent' | 'overall' | 'chat' | 'summary' | 'receipt' | 'deleted' | 'done' | 'unavailable';
 
-// The server's conversation state. The screens read `phase` and little else.
-export type ServerState = { phase?: Phase; [key: string]: unknown };
+export type DimState = {
+  score: 0 | 1 | 2;
+  state: 'provided' | 'explicit_none' | 'not_applicable' | 'declined' | 'not_asked';
+  /** Check name to the student's quoted span, or null when not given. Keys keep the order received. */
+  checks: Record<string, string | null>;
+};
+
+// The server's conversation state. The screens read `phase` and little else; the system view reads the rest.
+export type ServerState = {
+  phase?: Phase;
+  dims?: Record<string, DimState>;
+  interpretation?: { cause: string | null; uncertain: boolean };
+  resolved_dates?: Record<string, string>;
+  follow_ups_used?: number;
+  last_target?: string | null;
+  pending_question?: string | null;
+  approved?: boolean;
+  [key: string]: unknown;
+};
 
 export type Consultation = {
   id: string;

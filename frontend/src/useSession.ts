@@ -26,6 +26,8 @@ export type SessionState = {
   options: string[];
   counter: string;
   serverState: ServerState | null;
+  /** The server state before the latest turn, so the system view can mark what changed. */
+  previousServerState: ServerState | null;
   summary: SummaryRow[];
   account: { id: string; ref_code: string } | null;
   aggregate: Aggregate | null;
@@ -66,6 +68,7 @@ export const initialSession: SessionState = {
   options: [],
   counter: '',
   serverState: null,
+  previousServerState: null,
   summary: [],
   account: null,
   aggregate: null,
@@ -119,6 +122,7 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
         chips: result.chips,
         options: result.options,
         counter: result.counter,
+        previousServerState: state.serverState,
         serverState: result.state,
         error: null,
       };
