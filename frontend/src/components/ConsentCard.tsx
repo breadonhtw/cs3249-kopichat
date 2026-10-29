@@ -1,0 +1,73 @@
+import { useState } from 'react';
+import type { Consultation } from '../api/client.ts';
+import { ActionPair } from './ActionPair.tsx';
+
+type Props = { consultation: Consultation; busy: boolean; onAgree: () => void };
+
+function Chevron() {
+  return (
+    <svg className="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3.5 6 8 10.5 12.5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Row({ title, children }: { title: string; children: string }) {
+  return (
+    <details className="row">
+      <summary className="row__summary">
+        <span>{title}</span>
+        <Chevron />
+      </summary>
+      <p className="row__body">{children}</p>
+    </details>
+  );
+}
+
+export function ConsentCard({ consultation, busy, onAgree }: Props) {
+  const [agreed, setAgreed] = useState(false);
+  const [declined, setDeclined] = useState(false);
+
+  if (declined) {
+    return (
+      <p className="body" role="status">
+        No problem. You can open this link again any time before {consultation.closing_date}.
+      </p>
+    );
+  }
+
+  return (
+    <section className="card" aria-label="Before you start">
+      <p className="body">
+        Kopichat is an AI. It asks up to 5 short follow-up questions, usually fewer, and stops once it has enough. It may
+        misunderstand you; you can correct it.
+      </p>
+      <p className="body">
+        Your replies are read by an AI service and by NUSSU's consultation team. Nothing goes to NUSSU until you approve the
+        summary.
+      </p>
+      <div className="rows">
+        <Row title="Why NUSSU is asking">{consultation.why}</Row>
+        <Row title="Who can see your responses">
+          The NUSSU consultation team sees your approved summary and your replies. No name or student ID is collected.
+        </Row>
+        <Row title="How findings are used">
+          Approved accounts are grouped into themes, reviewed by NUSSU, and summarised in a public consultation update. Only
+          approved material is used.
+        </Row>
+        <Row title="Stopping at any point">
+          You can skip any question, pause, or stop and delete what you typed before approving. Nothing is sent until you
+          approve.
+        </Row>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <span>I understand how my replies will be used and agree to take part.</span>
+      </label>
+      <ActionPair
+        secondary={{ label: 'Not now', onClick: () => setDeclined(true) }}
+        primary={{ label: 'Agree and start', onClick: onAgree, disabled: !agreed || busy }}
+      />
+    </section>
+  );
+}
