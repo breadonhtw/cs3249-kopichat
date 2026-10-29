@@ -46,6 +46,8 @@ def test_missing_required_order():
     assert s.missing_required("q2_often", checks("q2_often", "context")) == ["number", "timeframe"]
     assert s.missing_required("q1_what", checks("q1_what")) == ["behaviour"]
     assert s.missing_required("q1_what", checks("q1_what", "behaviour","place","time","conditions")) == ["persons"]
+    assert s.missing_required("q4_basis", checks("q4_basis", "observed_vantage")) == []
+    assert s.missing_required("q2_often", checks("q2_often", "number", "timeframe", "context")) == []
 
 def test_closed_and_sufficient():
     dims = s.new_dims()

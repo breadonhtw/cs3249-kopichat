@@ -84,7 +84,9 @@ def score(dimension: str, checks: dict) -> int:
 
 
 def missing_required(dimension: str, checks: dict) -> list[str]:
-    """Unmet required checks for a dimension, in ask priority."""
+    """Unmet required checks for a dimension, in ask priority. Empty once the dimension scores 2."""
+    if score(dimension, checks) == 2:
+        return []
     if dimension == "q1_what":
         if not _met(checks, "behaviour"):
             return ["behaviour"]
