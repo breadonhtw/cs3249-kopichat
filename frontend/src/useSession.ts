@@ -91,51 +91,77 @@ function messageOf(e: unknown): string {
   return 'Could not reach the server. Check your connection and try again.';
 }
 
+type Emit = (event: SessionEvent) => void;
+
 export function useSession(client: Client) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   const stateRef = useRef(state);
   stateRef.current = state;
+  // Set synchronously so two clicks in one frame cannot both start a request.
+  const inFlight = useRef(false);
+  const alive = useRef(true);
 
-  const run = useCallback(async (fn: () => Promise<void>) => {
-    dispatch({ type: 'busy', value: true });
-    try {
-      await fn();
-    } catch (e) {
-      dispatch({ type: 'error', message: messageOf(e) });
-      return;
-    }
-    dispatch({ type: 'busy', value: false });
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
   }, []);
 
+  // `ignore` says the caller no longer wants the result (unmounted or superseded): nothing is dispatched then.
+  // `force` skips the re-entry guard; only the mount load uses it, because StrictMode re-runs the effect.
+  const run = useCallback(
+    async (fn: (emit: Emit) => Promise<void>, ignore: () => boolean = () => !alive.current, force = false) => {
+      if (!force && (inFlight.current || stateRef.current.busy)) return;
+      const emit: Emit = (event) => { if (!ignore()) dispatch(event); };
+      inFlight.current = true;
+      emit({ type: 'busy', value: true });
+      try {
+        await fn(emit);
+      } catch (e) {
+        if (!ignore()) inFlight.current = false;
+        emit({ type: 'error', message: messageOf(e) });
+        return;
+      }
+      if (!ignore()) inFlight.current = false;
+      emit({ type: 'busy', value: false });
+    },
+    [],
+  );
+
   const load = useCallback(
-    () => run(async () => {
+    (ignore?: () => boolean, force = false) => run(async (emit) => {
       const info = await client.session();
-      dispatch({ type: 'loaded', consultation: info.consultation, phase: info.state.phase, serverState: info.state });
-    }),
+      emit({ type: 'loaded', consultation: info.consultation, phase: info.state.phase, serverState: info.state });
+    }, ignore, force),
     [client, run],
   );
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let ignore = false;
+    void load(() => ignore, true);
+    return () => { ignore = true; };
+  }, [load]);
 
   const turn = useCallback(
-    (message?: string, action?: string) => run(async () => {
-      dispatch({ type: 'turn', result: await client.turn(message, action) });
+    (message?: string, action?: string) => run(async (emit) => {
+      emit({ type: 'turn', result: await client.turn(message, action) });
     }),
     [client, run],
   );
 
   return {
     state,
-    consent: () => run(async () => {
+    retry: () => load(),
+    consent: () => run(async (emit) => {
       const r = await client.consent();
-      dispatch({ type: 'phase', phase: r.phase });
+      emit({ type: 'phase', phase: r.phase });
     }),
-    overall: (value: string | null) => run(async () => {
+    overall: (value: string | null) => run(async (emit) => {
       const result = await client.overall(value);
-      dispatch({ type: 'overall', value });
-      dispatch({ type: 'turn', result });
+      emit({ type: 'overall', value });
+      emit({ type: 'turn', result });
     }),
     send: (text: string) => {
+      if (inFlight.current) return Promise.resolve();
       dispatch({ type: 'student', text });
       return turn(text);
     },
@@ -145,7 +171,7 @@ export function useSession(client: Client) {
     },
     option: (i: number) => {
       const text = stateRef.current.options[i];
-      if (text === undefined) return Promise.resolve();
+      if (text === undefined || inFlight.current) return Promise.resolve();
       dispatch({ type: 'student', text });
       return turn(text);
     },
@@ -153,25 +179,25 @@ export function useSession(client: Client) {
     why: () => turn(undefined, 'why'),
     stop: () => turn(undefined, 'stop'),
     del: () => turn(undefined, 'delete'),
-    loadSummary: () => run(async () => {
-      dispatch({ type: 'summary', rows: (await client.summary()).rows });
+    loadSummary: () => run(async (emit) => {
+      emit({ type: 'summary', rows: (await client.summary()).rows });
     }),
-    edit: (key: string, text: string) => run(async () => {
-      dispatch({ type: 'summary', rows: (await client.editSummary(key, text)).rows });
+    edit: (key: string, text: string) => run(async (emit) => {
+      emit({ type: 'summary', rows: (await client.editSummary(key, text)).rows });
     }),
-    approve: () => run(async () => {
+    approve: () => run(async (emit) => {
       const r = await client.submit();
-      dispatch({ type: 'submitted', account: r.account, aggregate: r.aggregate });
+      emit({ type: 'submitted', account: r.account, aggregate: r.aggregate });
     }),
-    withdraw: () => run(async () => {
+    withdraw: () => run(async (emit) => {
       await client.withdraw();
-      dispatch({ type: 'phase', phase: 'deleted' });
+      emit({ type: 'phase', phase: 'deleted' });
     }),
     contact: (c: string) => run(async () => { await client.contact(c); }),
-    restart: () => run(async () => {
+    restart: () => run(async (emit) => {
       await client.reset();
       const info = await client.session();
-      dispatch({ type: 'loaded', consultation: info.consultation, phase: info.state.phase, serverState: info.state });
+      emit({ type: 'loaded', consultation: info.consultation, phase: info.state.phase, serverState: info.state });
     }),
   };
 }

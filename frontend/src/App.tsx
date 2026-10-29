@@ -23,6 +23,11 @@ export function App() {
           {state.error}
         </p>
       )}
+      {state.error && consultation === null && (
+        <button type="button" className="btn btn--retry" onClick={session.retry}>
+          Try again
+        </button>
+      )}
       <main className="main">
         {consultation === null ? (
           !state.error && <p className="muted">Opening the consultation.</p>

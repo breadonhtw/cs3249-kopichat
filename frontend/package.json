@@ -13,7 +13,7 @@
     "start": "node scripts/start.mjs",
     "doctor": "node scripts/doctor.mjs",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test tests/client.test.ts tests/useSession.test.ts scripts/tests/local-scripts.test.mjs scripts/tests/locator-paths.test.mjs"
+    "test": "tsx --test tests/client.test.ts tests/useSession.test.ts tests/consentCard.test.ts scripts/tests/local-scripts.test.mjs scripts/tests/locator-paths.test.mjs"
   },
   "dependencies": {
     "@assistant-ui/react": "0.14.26",

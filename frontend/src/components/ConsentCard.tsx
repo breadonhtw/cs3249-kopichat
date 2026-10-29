@@ -4,6 +4,13 @@ import { ActionPair } from './ActionPair.tsx';
 
 type Props = { consultation: Consultation; busy: boolean; onAgree: () => void };
 
+/** The line shown after "Not now". A missing or placeholder closing date ("[...]") is left out. */
+export function declinedLine(closingDate: string | undefined | null): string {
+  const date = closingDate?.trim();
+  if (!date || date.startsWith('[')) return 'No problem. You can open this link again any time.';
+  return `No problem. You can open this link again any time before ${date}.`;
+}
+
 function Chevron() {
   return (
     <svg className="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -31,7 +38,7 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
   if (declined) {
     return (
       <p className="body" role="status">
-        No problem. You can open this link again any time before {consultation.closing_date}.
+        {declinedLine(consultation.closing_date)}
       </p>
     );
   }
