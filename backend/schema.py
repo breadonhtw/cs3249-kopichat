@@ -93,21 +93,26 @@ def missing_required(dimension: str, checks: dict) -> list[str]:
         need = 4 - _count(checks, Q1_ASK_ORDER)
         unmet = [c for c in Q1_ASK_ORDER if not _met(checks, c)]
         return unmet[:max(need, 0)]
+    if dimension == "q4_basis":
+        # one question template covers experienced, observed and heard
+        return [] if _met(checks, "experienced") else ["experienced"]
+    if dimension == "q5_better":
+        # present gates the rest, as behaviour gates Q1
+        if not _met(checks, "present"):
+            return ["present"]
+        return [c for c in ["specific_action", "linked"] if not _met(checks, c)]
     required = {
         "q2_often": ["number", "timeframe", "context"],
         "q3_effect": ["impact_type", "consequence", "degree"],
-        "q4_basis": ["experienced"],
-        "q5_better": ["present"],
     }[dimension]
     return [c for c in required if not _met(checks, c)]
 
 
 def is_closed(dim_state: dict) -> bool:
-    """A dimension is settled when fully answered or explicitly ended by the student."""
-    state = dim_state["state"]
-    if state in ("declined", "explicit_none", "not_applicable"):
+    """Settled when the dimension scores 2, or the student ended it (declined, explicit none, not applicable)."""
+    if dim_state["score"] == 2:
         return True
-    return state == "provided" and dim_state["score"] == 2
+    return dim_state["state"] in ("explicit_none", "not_applicable", "declined")
 
 
 def is_sufficient(state: dict) -> bool:

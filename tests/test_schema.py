@@ -49,6 +49,16 @@ def test_missing_required_order():
     assert s.missing_required("q4_basis", checks("q4_basis", "observed_vantage")) == []
     assert s.missing_required("q2_often", checks("q2_often", "number", "timeframe", "context")) == []
 
+def test_missing_required_q4_q5():
+    assert s.missing_required("q4_basis", checks("q4_basis", "mode_stated")) == ["experienced"]
+    assert s.missing_required("q5_better", checks("q5_better", "present")) == ["specific_action", "linked"]
+    assert s.missing_required("q5_better", checks("q5_better")) == ["present"]
+
+def test_is_closed():
+    assert s.is_closed({"score": 2, "state": "not_asked", "checks": {}})
+    assert s.is_closed({"score": 0, "state": "not_applicable", "checks": {}})
+    assert not s.is_closed({"score": 1, "state": "provided", "checks": {}})
+
 def test_closed_and_sufficient():
     dims = s.new_dims()
     assert not s.is_sufficient({"dims": dims})
