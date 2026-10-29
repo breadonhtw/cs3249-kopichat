@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from backend import content, extract, llm, logbook, policy
 
 DEFAULT_CHIPS = ["Skip this question", "Why do you ask?", "Pause"]
-OUT_OF_SCOPE_CHIPS = ["Continue without the name", "Stop"]
+OUT_OF_SCOPE_PERSON_CHIPS = ["Continue without the name", "Stop"]
+OUT_OF_SCOPE_APPEAL_CHIPS = ["Continue with my general experience", "Stop"]
 STOP_CHIPS = ["Delete", "Keep draft"]
 
 
@@ -13,6 +14,8 @@ def _counter(state: dict) -> str:
     n = state["follow_ups_used"]
     if state["phase"] == "summary":
         return f"Follow-ups used {n} of up to {policy.MAX_FOLLOWUPS}"
+    if state["phase"] == "chat" and n == 0:
+        return f"Up to {policy.MAX_FOLLOWUPS} follow-ups"
     if state["pending_question"]:
         return f"Follow-up {n} of up to {policy.MAX_FOLLOWUPS}"
     return ""
@@ -161,9 +164,9 @@ def _route(state: dict, ex: dict) -> dict:
         state["stopped"] = "crisis"
         return _result(state, content.CRISIS_MESSAGE, chips=[])
     if route == "out_of_scope_person":
-        return _result(state, content.OUT_OF_SCOPE_PERSON, chips=list(OUT_OF_SCOPE_CHIPS))
+        return _result(state, content.OUT_OF_SCOPE_PERSON, chips=list(OUT_OF_SCOPE_PERSON_CHIPS))
     if route == "out_of_scope_appeal":
-        return _result(state, content.OUT_OF_SCOPE_APPEAL, chips=list(OUT_OF_SCOPE_CHIPS))
+        return _result(state, content.OUT_OF_SCOPE_APPEAL, chips=list(OUT_OF_SCOPE_APPEAL_CHIPS))
     if route == "meta_why":
         return _result(state, _why(state))
     if route == "meta_anonymous":

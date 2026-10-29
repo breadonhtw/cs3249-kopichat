@@ -33,6 +33,7 @@ def test_storyboard_journey(fake):
 def test_storyboard_acks_and_counters(fake):
     fake(EXTRACTIONS[0], EXTRACTIONS[1])
     st = p.new_state("c"); run(st, action="start_chat")
+    assert run(st, action="why")["counter"] == "Up to 5 follow-ups"
     r1 = run(st, STUDENT[0])
     assert r1["reply"] == "Packed buses, and late again. " + c.QUESTIONS[("q1_what","behaviour")]
     assert r1["counter"] == "Follow-up 1 of up to 5" and r1["phase"] == "chat"
@@ -108,13 +109,14 @@ def test_unclear_without_options_reasks(fake):
     r = run(st, "hm")
     assert r["reply"] == c.OPENING and r["options"] == []
 
-@pytest.mark.parametrize("route,text", [("out_of_scope_person", c.OUT_OF_SCOPE_PERSON),
-                                        ("out_of_scope_appeal", c.OUT_OF_SCOPE_APPEAL)])
-def test_out_of_scope_fixed_text_uncounted_not_merged(fake, route, text):
+@pytest.mark.parametrize("route,text,chips", [
+    ("out_of_scope_person", c.OUT_OF_SCOPE_PERSON, ["Continue without the name", "Stop"]),
+    ("out_of_scope_appeal", c.OUT_OF_SCOPE_APPEAL, ["Continue with my general experience", "Stop"])])
+def test_out_of_scope_fixed_text_uncounted_not_merged(fake, route, text, chips):
     fake({"route": route, "checks": {"q1_what": {"conditions": "packed"}}})
     st = p.new_state("c"); run(st, action="start_chat")
     r = run(st, "packed")
-    assert r["reply"] == text and r["chips"] == ["Continue without the name", "Stop"]
+    assert r["reply"] == text and r["chips"] == chips
     assert st["follow_ups_used"] == 0 and st["dims"]["q1_what"]["checks"]["conditions"] is None
 
 def test_meta_anonymous_and_action(fake):
@@ -142,7 +144,7 @@ def test_llm_failure_leaves_state_unchanged(fake):
     st = p.new_state("c"); run(st, action="start_chat"); before = json.dumps(st["dims"])
     r = run(st, "x")
     assert r["reply"] == c.UNAVAILABLE_MESSAGE and json.dumps(st["dims"]) == before and st["follow_ups_used"] == 0
-    assert st["transcript"] == [] and r["counter"] == "Follow-up 0 of up to 5"
+    assert st["transcript"] == [] and r["counter"] == "Up to 5 follow-ups"
 
 def test_no_llm_leaves_state_untouched():
     st = p.new_state("c"); run(st, action="start_chat")
