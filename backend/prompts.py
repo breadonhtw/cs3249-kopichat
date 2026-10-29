@@ -12,6 +12,7 @@ Output ONE JSON object and nothing else: no prose, no code fence.
   "not_applicable": [],
   "interpretation": {"cause": null, "uncertain": false},
   "resolved_dates": {},
+  "feeling": null,
   "ack": "",
   "route": "continue",
   "unclear_options": []
@@ -67,8 +68,9 @@ Rules:
 6. "not_applicable" lists dimensions that cannot apply to this topic (a general policy concern has no place or time).
 7. "interpretation.cause" is the student's own suspected cause, copied as a span, or null. Set "uncertain" to true when they hedge ("maybe", "I think", "not sure").
 8. "resolved_dates" maps a check name (for example "time", "timeframe", "most_recent") to an ISO date "YYYY-MM-DD" or month "YYYY-MM", computed from the "Today is" line. Include a check only when the student's words fix a date.
-9. "ack" is at most 12 words that reuse the student's own words. No feelings, no causes, no "sounds", no "sorry". Use "" if nothing fits.
-10. "route" is exactly one of:
+9. "feeling" is a feeling word or phrase the student used about themselves, e.g. "damn frustrating", copied as a span; never inferred. Use null if they gave none.
+10. "ack" is at most 12 words that reuse the student's own words. No feelings, no causes, no "sounds", no "sorry". Use "" if nothing fits.
+11. "route" is exactly one of:
 - continue: the message is an answer to the consultation
 - crisis: self-harm or danger to anyone
 - out_of_scope_person: about a named individual
@@ -77,7 +79,7 @@ Rules:
 - meta_anonymous: asks about anonymity or who sees it
 - stop: wants to stop or delete
 - unclear: you cannot tell what the message refers to; then fill "unclear_options" with up to 3 short readings (each under 40 characters)
-11. The messages are the whole conversation so far. Score all of it afresh each time."""
+12. The messages are the whole conversation so far. Score all of it afresh each time."""
 
 
 def extract_turn(transcript: list[str], today: str) -> str:

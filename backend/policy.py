@@ -22,9 +22,11 @@ def new_state(consultation_id: str) -> dict:
         "follow_ups_used": 0,
         "last_target": None,
         "pending_question": None,
+        "asked": [],
         "interpretation": {"cause": None, "uncertain": False},
         "resolved_dates": {},
         "edits": {},
+        "feeling": None,
         "approved": False,
         "transcript": [],
         "last_action": None,
@@ -82,11 +84,21 @@ def apply_extraction(state: dict, ex: dict) -> dict:
     for name, date in (ex.get("resolved_dates") or {}).items():
         if _span(date) is not None:
             state["resolved_dates"][name] = date
+
+    if _span(ex.get("feeling")) is not None:
+        state["feeling"] = ex["feeling"]
     return state
 
 
+def _asked(state: dict, dim: str) -> set[str]:
+    return {check for d, check in state.get("asked") or [] if d == dim}
+
+
 def next_target(state: dict) -> tuple[str, str] | None:
-    """The first open dimension and its first missing required check; None when nothing more to ask."""
+    """The first open dimension and its first missing required check not yet asked; None when nothing more to ask.
+
+    No question is asked twice. A dimension whose asked check is still unmet after the student answered is
+    left as it stands (the summary shows it partial) rather than asked again in other words."""
     if state["follow_ups_used"] >= MAX_FOLLOWUPS:
         return None
     for dim in ASK_ORDER:
@@ -95,10 +107,15 @@ def next_target(state: dict) -> tuple[str, str] | None:
         dim_state = state["dims"][dim]
         if schema.is_closed(dim_state):
             continue
-        missing = schema.missing_required(dim, dim_state["checks"])
+        checks = dim_state["checks"]
+        asked = _asked(state, dim)
+        if any(_span(checks.get(name)) is None for name in asked):
+            continue
+        missing = [name for name in schema.missing_required(dim, checks) if name not in asked]
         if missing:
             return dim, missing[0]
-    if schema.is_sufficient(state) and state["dims"]["q5_better"]["state"] == "not_asked":
+    if (schema.is_sufficient(state) and state["dims"]["q5_better"]["state"] == "not_asked"
+            and "present" not in _asked(state, "q5_better")):
         return "q5_better", "present"
     return None
 
@@ -111,7 +128,8 @@ def compose_question(target: tuple[str, str], state: dict | None = None) -> str:
     return content.QUESTIONS[target]
 
 
-def _spans(state: dict, dim: str, names: list[str], dated: tuple[str, ...] = ()) -> list[str]:
+def _spans(state: dict, dim: str, names: list[str], dated: tuple[str, ...] = ()) -> list[tuple[str, str]]:
+    """(span, shown) for each stored span: shown carries the resolved date when the check is dated."""
     checks = state["dims"][dim]["checks"]
     out = []
     for name in names:
@@ -119,8 +137,28 @@ def _spans(state: dict, dim: str, names: list[str], dated: tuple[str, ...] = ())
         if span is None:
             continue
         date = state["resolved_dates"].get(name) if name in dated else None
-        out.append(f"{span} [{date}]" if date else span)
+        out.append((span, f"{span} [{date}]" if date else span))
     return out
+
+
+def _row(parts: list[tuple[str, str]]) -> str:
+    """Join a row's spans, dropping any span contained in another span of the same row (the first of equals stays)."""
+    kept = []
+    for i, (span, shown) in enumerate(parts):
+        low = span.lower()
+        covered = any(j != i and low in other.lower() and (low != other.lower() or j < i)
+                      for j, (other, _) in enumerate(parts))
+        if not covered:
+            kept.append(shown)
+    return "; ".join(kept)
+
+
+def _effect(state: dict) -> str:
+    """The consequence and its degree; the impact type only when no consequence was given."""
+    checks = state["dims"]["q3_effect"]["checks"]
+    if _span(checks.get("consequence")) is None:
+        return _row(_spans(state, "q3_effect", ["impact_type"]))
+    return _row(_spans(state, "q3_effect", ["consequence", "degree"]))
 
 
 def _basis(state: dict) -> str:
@@ -148,19 +186,18 @@ def _suggestion(state: dict) -> str:
     action = _span(checks.get("specific_action"))
     if action:
         return action
-    return "; ".join(_spans(state, "q5_better", schema.CHECKS["q5_better"]))
+    return _row(_spans(state, "q5_better", schema.CHECKS["q5_better"]))
 
 
 def build_summary(state: dict) -> list[dict]:
     """Nine rows in SUMMARY_FIELDS order. Text is only stored spans, student edits, or fixed labels."""
-    q1 = schema.CHECKS["q1_what"]
     texts = {
-        "what": "; ".join(_spans(state, "q1_what", q1, dated=("time",))),
-        "often": "; ".join(_spans(state, "q2_often", ["number", "timeframe", "context"], dated=("timeframe",))
-                           + _spans(state, "q2_often", ["most_recent"], dated=("most_recent",))),
-        "effect": "; ".join(_spans(state, "q3_effect", ["impact_type", "consequence", "degree"])),
-        "saw": "; ".join(_spans(state, "q1_what", ["persons", "conditions"])
-                         + _spans(state, "q4_basis", ["observed_vantage"])),
+        "what": _row(_spans(state, "q1_what", ["behaviour", "place", "time", "location"], dated=("time",))),
+        "often": _row(_spans(state, "q2_often", ["number", "timeframe", "context", "most_recent"],
+                             dated=("timeframe", "most_recent"))),
+        "effect": _effect(state),
+        "saw": _row(_spans(state, "q1_what", ["persons", "conditions"])
+                    + _spans(state, "q4_basis", ["observed_vantage"])),
         "cause": _cause(state),
         "basis": _basis(state),
         "suggestion": _suggestion(state),

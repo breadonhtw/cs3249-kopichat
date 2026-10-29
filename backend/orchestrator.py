@@ -50,6 +50,7 @@ def _ask_next(state: dict, ack: str = "") -> str:
         state["pending_question"] = None
         return content.SUFFICIENT_MESSAGE
     question = policy.compose_question(target, state)
+    state.setdefault("asked", []).append(list(target))
     state["last_target"] = target[0]
     state["pending_question"] = question
     state["follow_ups_used"] += 1
@@ -86,13 +87,23 @@ def _log(session_id, state, message, action, extraction, reply, raw=None, error=
         pass  # a log that cannot be written must not cost the student their turn
 
 
+# The written fallback's answers, by dimension, and the summary row each one fills.
+FALLBACK_ROWS = {"q1_what": "what", "q2_often": "often", "q3_effect": "effect", "q4_basis": "basis",
+                 "q5_better": "suggestion"}
+
+
 def handle(state: dict, message: str | None, action: str | None, today: str,
-           session_id: str | None = None) -> dict:
+           session_id: str | None = None, answers: dict | None = None) -> dict:
     state.setdefault("last_options", [])
 
     if action == "delete":
+        # "Delete what you typed?" is true of the logs too: the session's log file goes with the draft.
         res = _reset(state)
-        _log(session_id, state, message, action, None, res["reply"])
+        if session_id is not None:
+            try:
+                logbook.delete(session_id)
+            except OSError:
+                pass
         return res
     # After a crisis the questions stay paused: only delete does anything.
     if state["stopped"] == "crisis":
@@ -108,6 +119,10 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
         return res
     if action == "finish":
         res = _finish(state)
+        _log(session_id, state, message, action, None, res["reply"])
+        return res
+    if action == "fallback":
+        res = _fallback(state, answers)
         _log(session_id, state, message, action, None, res["reply"])
         return res
     if action in ("why", "anonymous", "stop", "skip"):
@@ -143,7 +158,8 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
         return res
 
     res = _route(state, ex, message)
-    _log(session_id, state, message, action, ex, res["reply"], raw=raw)
+    if ex["route"] != "crisis":  # a crisis disclosure is never written to the log
+        _log(session_id, state, message, action, ex, res["reply"], raw=raw)
     return res
 
 
@@ -151,6 +167,27 @@ def _finish(state: dict) -> dict:
     """The student is done answering: go to the summary. Not a follow-up, no LLM."""
     if state["phase"] != "chat" or not state["transcript"]:
         return _result(state, state["pending_question"] or "")
+    state["phase"] = "summary"
+    state["pending_question"] = None
+    state["last_options"] = []
+    return _result(state, content.SUFFICIENT_MESSAGE, chips=[])
+
+
+def _fallback(state: dict, answers: dict | None) -> dict:
+    """The written fallback, for when the model cannot be reached: the student's own answers go into the
+    transcript and straight into the summary rows, and the chat goes to the summary. No LLM."""
+    if state["phase"] != "chat":
+        return _result(state, state["pending_question"] or "")
+    given = {}
+    for dim, row in FALLBACK_ROWS.items():
+        text = (answers or {}).get(dim)
+        if isinstance(text, str) and text.strip():
+            given[row] = text.strip()
+    if not given and not state["transcript"]:
+        return _result(state, state["pending_question"] or "")
+    for row, text in given.items():
+        state["transcript"].append(text)
+        state["edits"][row] = text
     state["phase"] = "summary"
     state["pending_question"] = None
     state["last_options"] = []

@@ -1,6 +1,7 @@
 """Extraction: ask the LLM what the student has said, then keep only what the code can verify."""
 import math
 import re
+from datetime import date
 
 from backend import llm, prompts
 from backend.schema import CHECKS, DIMENSIONS
@@ -16,7 +17,8 @@ UNCLEAR_OPTION_MAX_CHARS = 40
 EXTRACT_MAX_TOKENS = 1000
 
 _ALL_CHECKS = {c for names in CHECKS.values() for c in names}
-_DATE = re.compile(r"\d{4}-\d{2}(-\d{2})?")
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_MONTH = re.compile(r"\d{4}-(\d{2})")
 _WORD = re.compile(r"[a-z]+(?:'[a-z]+)?")
 ACK_MIN_WORD_LEN = 4
 
@@ -33,12 +35,36 @@ def _content_words(text: str) -> list[str]:
 
 
 def _grounded(ack: str, transcript_words: set[str]) -> bool:
-    """An ack must reuse the student's words: at least half of its content words appear in the transcript.
+    """An ack must reuse the student's words: at least half of its distinct content words appear in the
+    transcript, so repeating one borrowed word cannot carry invented ones.
     An ack with no content words ("Got it.") says nothing the student did not, so it stays."""
-    words = _content_words(ack)
+    words = set(_content_words(ack))
     if not words:
         return True
     return sum(w in transcript_words for w in words) >= math.ceil(len(words) / 2)
+
+
+def _cap(ack: str) -> str:
+    """At most ACK_MAX_CHARS, cut at a word boundary. A first word longer than the cap leaves no ack."""
+    if len(ack) <= ACK_MAX_CHARS:
+        return ack
+    head = ack[:ACK_MAX_CHARS + 1]  # the extra character says whether the cut falls inside a word
+    match = re.match(r"(.*\S)\s", head, flags=re.DOTALL)
+    return match.group(1) if match else ""
+
+
+def _valid_date(value) -> bool:
+    """A real calendar day "YYYY-MM-DD" or a real month "YYYY-MM"."""
+    if not isinstance(value, str):
+        return False
+    if _DAY.fullmatch(value):
+        try:
+            date.fromisoformat(value)
+        except ValueError:
+            return False
+        return True
+    month = _MONTH.fullmatch(value)
+    return month is not None and 1 <= int(month.group(1)) <= 12
 
 
 def _span(value, haystack: str):
@@ -74,16 +100,15 @@ def validate_extraction(raw: dict, transcript: list[str]) -> dict:
     cause = _span(interp.get("cause"), haystack)
 
     dates = raw.get("resolved_dates") if isinstance(raw.get("resolved_dates"), dict) else {}
-    resolved = {k: v for k, v in dates.items()
-                if k in _ALL_CHECKS and isinstance(v, str) and _DATE.fullmatch(v)}
+    resolved = {k: v for k, v in dates.items() if k in _ALL_CHECKS and _valid_date(v)}
 
     ack = raw.get("ack") if isinstance(raw.get("ack"), str) else ""
     ack = ack.strip()
     if any(word in ack.lower() for word in ACK_BANNED):
         ack = ""
+    ack = _cap(ack)
     if ack and not _grounded(ack, set(_WORD.findall(haystack))):
         ack = ""  # an ack that does not reuse the student's words is not shown (this also stops injected text)
-    ack = ack[:ACK_MAX_CHARS]
 
     route = raw.get("route")
     route = route.strip().lower() if isinstance(route, str) else ""
@@ -99,6 +124,7 @@ def validate_extraction(raw: dict, transcript: list[str]) -> dict:
         "not_applicable": _dims(raw.get("not_applicable")),
         "interpretation": {"cause": cause, "uncertain": cause is not None and interp.get("uncertain") is True},
         "resolved_dates": resolved,
+        "feeling": _span(raw.get("feeling"), haystack),
         "ack": ack,
         "route": route,
         "unclear_options": options[:MAX_UNCLEAR_OPTIONS],

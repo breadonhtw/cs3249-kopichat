@@ -65,11 +65,108 @@ def test_skip_last_question_gives_sufficient_message(fake):
     assert r["reply"] == c.SUFFICIENT_MESSAGE and r["phase"] == "summary"
 
 def test_budget_caps_at_five(fake):
-    thin = {"checks": {"q1_what": {"conditions": "packed"}}, "route": "continue", "ack": ""}
-    fake(*[thin]*6)
+    # each answer gives exactly what was asked, so every question is new and the budget is what stops them
+    lines = ["packed", "the bus left me", "at the stop", "at 8am", "with tourists", "late"]
+    spans = [("q1_what", "conditions", "packed"), ("q1_what", "behaviour", "bus left me"), ("q1_what", "place", "the stop"),
+             ("q1_what", "time", "8am"), ("q1_what", "persons", "tourists"), ("q3_effect", "impact_type", "late")]
+    outs, checks = [], {}
+    for dim, name, span in spans:
+        checks.setdefault(dim, {})[name] = span
+        outs.append({"checks": json.loads(json.dumps(checks)), "route": "continue", "ack": ""})
+    fake(*outs)
     st = p.new_state("c"); run(st, action="start_chat")
-    for i in range(6): r = run(st, "packed")
-    assert st["follow_ups_used"] == 5 and r["phase"] == "summary"
+    for line in lines: r = run(st, line)
+    assert st["follow_ups_used"] == 5 and r["phase"] == "summary" and r["reply"] == c.SUFFICIENT_MESSAGE
+    assert len({tuple(t) for t in st["asked"]}) == len(st["asked"]) == 5
+
+
+def asked_questions(replies):
+    return [q for r in replies for q in c.QUESTIONS.values() if r["reply"].endswith(q)]
+
+
+def test_an_unanswered_question_is_never_asked_again(fake):
+    thin = {"checks": {"q1_what": {"conditions": "packed"}}, "route": "continue", "ack": ""}
+    fake(*[thin] * 6)
+    st = p.new_state("c"); run(st, action="start_chat")
+    replies = [run(st, "packed") for _ in range(6)]
+    qs = asked_questions(replies)
+    assert len(qs) == len(set(qs)) == 4  # Q1, Q3, Q2, Q4 once each; nothing open is left un-asked
+    assert qs[0] == c.QUESTIONS[("q1_what", "behaviour")]
+    assert replies[4]["reply"] == c.SUFFICIENT_MESSAGE and replies[4]["phase"] == "summary"
+    assert st["follow_ups_used"] == 4
+
+
+def _closed_except(*open_dims):
+    """An extraction whose spans are all in CLOSED_LINE and that closes every dimension but open_dims."""
+    full = {
+        "q1_what": {"behaviour": "missed the bus", "place": "Kent Ridge", "time": "Monday", "persons": "tourists", "conditions": "packed"},
+        "q2_often": {"number": "twice", "timeframe": "this week", "context": "mornings"},
+        "q3_effect": {"impact_type": "late", "consequence": "late for class", "degree": "10 min"},
+        "q4_basis": {"experienced": "I missed"},
+    }
+    return {"checks": {d: v for d, v in full.items() if d not in open_dims}, "route": "continue", "ack": ""}
+
+
+CLOSED_LINE = "I missed the bus at Kent Ridge on Monday, packed with tourists, twice this week in the mornings, late for class by 10 min"
+
+
+def test_hearsay_account_gets_exactly_one_q4_question(fake):
+    first = _closed_except("q4_basis")
+    second = {**first, "checks": {**first["checks"], "q4_basis": {"mode_stated": "my friend told me"}}}
+    fake(first, second)
+    st = p.new_state("c"); run(st, action="start_chat")
+    r1 = run(st, CLOSED_LINE.replace("I missed", "Someone missed"))
+    assert r1["reply"].endswith(c.QUESTIONS[("q4_basis", "experienced")])
+    r2 = run(st, "my friend told me")
+    assert st["dims"]["q4_basis"]["score"] == 1
+    assert r2["reply"] == c.SUFFICIENT_MESSAGE and r2["phase"] == "summary"
+    assert [t for t in st["asked"] if t[0] == "q4_basis"] == [["q4_basis", "experienced"]]
+    row = next(x for x in p.build_summary(st) if x["key"] == "basis")
+    assert row["text"] == "my friend told me"
+
+
+def test_vague_frequency_gets_one_more_question_at_most_and_never_the_same_one(fake):
+    first = _closed_except("q2_often")
+    fake(first, first, first, first)
+    st = p.new_state("c"); run(st, action="start_chat")
+    replies = [run(st, CLOSED_LINE.replace("twice this week in the mornings", "")), run(st, "a lot"),
+               run(st, "a lot"), run(st, "a lot")]
+    assert replies[0]["reply"].endswith(c.QUESTIONS[("q2_often", "number")])
+    q2 = [t for t in st["asked"] if t[0] == "q2_often"]
+    assert len(q2) <= 2 and len({tuple(t) for t in q2}) == len(q2)
+    assert asked_questions(replies[1:]).count(c.QUESTIONS[("q2_often", "number")]) == 0
+    assert st["phase"] == "summary"
+
+
+def test_fallback_answers_go_to_the_summary_without_the_llm(fake):
+    fake()  # any LLM call would fail
+    st = p.new_state("c"); run(st, action="start_chat")
+    answers = {"q1_what": " The A2 was full ", "q3_effect": "late for class", "q5_better": "", "q4_basis": "  ", "bogus": "x"}
+    r = o.handle(st, None, "fallback", "2026-10-28", answers=answers)
+    assert r["reply"] == c.SUFFICIENT_MESSAGE and r["phase"] == "summary" and r["unavailable"] is False
+    assert st["transcript"] == ["The A2 was full", "late for class"]
+    assert st["edits"] == {"what": "The A2 was full", "effect": "late for class"}
+    rows = {x["key"]: x for x in p.build_summary(st)}
+    assert rows["what"] == {"key": "what", "label": "What happened", "text": "The A2 was full", "status": "edited"}
+    assert rows["often"]["status"] == "not_given" and st["follow_ups_used"] == 0
+
+
+def test_fallback_maps_every_answer_to_its_row(fake):
+    fake()
+    st = p.new_state("c"); run(st, action="start_chat")
+    dims = ["q1_what", "q2_often", "q3_effect", "q4_basis", "q5_better"]
+    o.handle(st, None, "fallback", "2026-10-28", answers={d: f"answer {d}" for d in dims})
+    assert st["edits"] == {"what": "answer q1_what", "often": "answer q2_often", "effect": "answer q3_effect",
+                           "basis": "answer q4_basis", "suggestion": "answer q5_better"}
+
+
+def test_fallback_with_nothing_written_or_outside_chat_is_a_noop(fake):
+    fake()
+    st = p.new_state("c"); run(st, action="start_chat")
+    r = o.handle(st, None, "fallback", "2026-10-28", answers={"q1_what": "  "})
+    assert r["phase"] == "chat" and r["reply"] == c.OPENING and st["transcript"] == []
+    st2 = p.new_state("c")
+    assert o.handle(st2, None, "fallback", "2026-10-28", answers={"q1_what": "x"})["phase"] == "consent"
 
 def test_crisis_short_circuits(fake):
     fake({"route": "crisis", "checks": {"q1_what": {"behaviour": "x"}}})
@@ -273,3 +370,30 @@ def test_finish_outside_chat_phase_is_a_noop(fake):
     st = p.new_state("c"); st["transcript"].append("something")
     r = run(st, action="finish")
     assert st["phase"] == "consent" and r["reply"] == ""
+
+
+def test_delete_removes_the_sessions_log(fake, monkeypatch, tmp_path):
+    monkeypatch.setenv("KOPICHAT_LOG_DIR", str(tmp_path))
+    fake(EXTRACTIONS[0])
+    st = p.new_state("c"); run(st, action="start_chat")
+    o.handle(st, STUDENT[0], None, "2026-10-28", session_id="t")
+    assert (tmp_path / "t.jsonl").exists()
+    o.handle(st, None, "delete", "2026-10-28", session_id="t")
+    assert not (tmp_path / "t.jsonl").exists()
+    o.handle(st, None, "delete", "2026-10-28", session_id="t")  # nothing to delete: harmless
+
+
+def test_a_crisis_turn_is_not_logged(fake, monkeypatch, tmp_path):
+    monkeypatch.setenv("KOPICHAT_LOG_DIR", str(tmp_path))
+    fake({"route": "crisis"})
+    st = p.new_state("c"); run(st, action="start_chat")
+    r = o.handle(st, "I want to hurt myself", None, "2026-10-28", session_id="t")
+    assert r["reply"] == c.CRISIS_MESSAGE
+    assert not (tmp_path / "t.jsonl").exists()
+
+
+def test_storyboard_asks_each_question_once(fake):
+    fake(EXTRACTIONS[0], EXTRACTIONS[1], EXTRACTIONS[2], EXTRACTIONS[3], EXTRACTIONS[4])
+    st = p.new_state("c"); run(st, action="start_chat")
+    for line in STUDENT: run(st, line)
+    assert st["asked"] == [["q1_what", "behaviour"], ["q3_effect", "consequence"], ["q2_often", "number"], ["q5_better", "present"]]

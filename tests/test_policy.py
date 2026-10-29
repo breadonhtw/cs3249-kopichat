@@ -128,7 +128,8 @@ def test_new_state_shape():
     st = p.new_state("c")
     assert p.new_state("campus-visitors-2026")["consultation_id"] == "campus-visitors-2026"
     assert set(st) == {"consultation_id", "dims", "overall", "phase", "follow_ups_used", "last_target", "pending_question", "interpretation",
-                       "resolved_dates", "edits", "approved", "transcript", "last_action", "stopped"}
+                       "resolved_dates", "edits", "approved", "transcript", "last_action", "stopped", "asked", "feeling"}
+    assert st["asked"] == [] and st["feeling"] is None
     assert st["phase"] == "consent" and st["approved"] is False and st["stopped"] is None and st["follow_ups_used"] == 0
 
 
@@ -153,3 +154,75 @@ def test_declined_reopens_only_with_a_new_span_for_it():
     assert st["dims"]["q3_effect"]["state"] == "declined"
     st = p.apply_extraction(st, ex({"q3_effect": {"degree": "20 min"}}))
     assert st["dims"]["q3_effect"]["state"] == "provided"
+
+
+# --- C3: no question twice ---------------------------------------------------
+
+def test_next_target_skips_an_asked_check_left_unmet():
+    st = p.new_state("c")
+    st["asked"] = [["q1_what", "behaviour"]]
+    # the student answered but gave no behaviour: Q1 is left partial, the order moves on
+    st = p.apply_extraction(st, ex({"q1_what": {"conditions": "packed"}}))
+    assert p.next_target(st) == ("q3_effect", "impact_type")
+
+
+def test_next_target_asks_the_next_check_once_the_asked_one_is_met():
+    st = p.apply_extraction(p.new_state("c"), ex({"q1_what": {"behaviour": "a"}}))
+    st["asked"] = [["q1_what", "behaviour"]]
+    assert p.next_target(st) == ("q1_what", "place")
+    st["asked"].append(["q1_what", "place"])
+    assert p.next_target(st)[0] != "q1_what"  # place still unmet after it was asked
+
+
+def test_q5_is_asked_once_even_when_the_answer_gives_nothing():
+    st = p.new_state("c")
+    for d in ["q1_what", "q2_often", "q3_effect", "q4_basis"]:
+        st["dims"][d].update(score=2, state="provided")
+    assert p.next_target(st) == ("q5_better", "present")
+    st["asked"].append(["q5_better", "present"])
+    assert p.next_target(st) is None
+
+
+def test_open_dimensions_with_nothing_left_to_ask_end_the_questions():
+    st = p.new_state("c")
+    st["asked"] = [["q1_what", "behaviour"], ["q3_effect", "impact_type"], ["q2_often", "number"], ["q4_basis", "experienced"]]
+    assert not s.is_sufficient(st) and p.next_target(st) is None
+
+
+# --- I4: summary rows -----------------------------------------------------------
+
+def _storyboard_state():
+    from backend import extract as x
+    from tests.fixtures.storyboard import EXTRACTIONS, STUDENT
+    st = p.new_state("c")
+    return p.apply_extraction(st, x.validate_extraction(EXTRACTIONS[4], STUDENT))
+
+
+def test_storyboard_summary_rows_do_not_repeat_each_other():
+    rows = {r["key"]: r["text"] for r in p.build_summary(_storyboard_state())}
+    what = rows["what"].split("; ")
+    saw = rows["saw"].split("; ")
+    assert rows["what"] == "Couldn't get onto the first A2; Kent Ridge MRT; yesterday, around 8.45am [2026-10-27]"
+    assert rows["saw"] == "mornings are crowded; There was a group with a guide"  # "a group with a guide" is inside the last
+    for a in what:
+        for b in saw:
+            assert a.lower() not in b.lower() and b.lower() not in a.lower()
+    assert rows["effect"] == "got to my tutorial about 15 min late"  # the degree is inside the consequence
+
+
+def test_effect_row_shows_impact_type_only_without_a_consequence():
+    st = p.apply_extraction(p.new_state("c"), ex({"q3_effect": {"impact_type": "late"}}))
+    assert next(r for r in p.build_summary(st) if r["key"] == "effect")["text"] == "late"
+    st = p.apply_extraction(st, ex({"q3_effect": {"consequence": "missed the quiz", "degree": "10 marks"}}))
+    assert next(r for r in p.build_summary(st) if r["key"] == "effect")["text"] == "missed the quiz; 10 marks"
+
+
+def test_feeling_row_quotes_the_students_feeling():
+    by = {r["key"]: r for r in p.build_summary(_storyboard_state())}
+    assert by["feeling"] == {"key": "feeling", "label": "Feeling, in your words", "text": "damn frustrating", "status": "quoted"}
+    st = p.apply_extraction(_storyboard_state(), ex())  # a later extraction with no feeling never erases it
+    assert st["feeling"] == "damn frustrating"
+
+
+def test_row_keeps_the_first_of_two_equal_spans():
+    assert p._row([("packed", "packed"), ("Packed", "Packed"), ("crowded", "crowded")]) == "packed; crowded"

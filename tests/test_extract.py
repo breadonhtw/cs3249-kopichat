@@ -22,7 +22,22 @@ def test_unknown_keys_and_routes_dropped():
 
 def test_ack_rules():
     assert x.validate_extraction({"ack": "That sounds frustrating."}, T)["ack"] == ""
-    assert len(x.validate_extraction({"ack": "packed buses " * 20}, T)["ack"]) == 80  # grounded, then capped
+    capped = x.validate_extraction({"ack": "packed buses " * 20}, T)["ack"]  # grounded, then capped
+    assert len(capped) <= 80 and capped.endswith("buses") and ("packed buses " * 20).startswith(capped)
+
+
+def test_ack_cap_cuts_at_a_word_boundary_or_drops_the_ack():
+    t = ["the buses are packed " + "a" * 90]
+    assert x.validate_extraction({"ack": "buses packed " + "a" * 90}, t)["ack"] == "buses packed"
+    assert x.validate_extraction({"ack": "a" * 90 + " buses"}, t)["ack"] == ""  # first word longer than the cap
+    exact = "packed " * 11 + "buses"  # 82 characters: the 80th falls inside the last word
+    assert x.validate_extraction({"ack": exact}, T)["ack"] == ("packed " * 11).strip()
+
+
+def test_ack_grounding_counts_distinct_words():
+    # one borrowed word repeated cannot carry three invented ones
+    assert x.validate_extraction({"ack": "late late late invented module claims"}, T)["ack"] == ""
+    assert x.validate_extraction({"ack": "late again, packed buses"}, T)["ack"] == "late again, packed buses"
 
 
 def test_ack_must_reuse_the_students_words():
@@ -86,6 +101,22 @@ def test_resolved_dates_filtered():
     raw = {"resolved_dates": {"time": "2026-10-27", "timeframe": "2026-10", "most_recent": "27/10/2026",
                               "colour": "2026-10-27", "number": 20261027}}
     assert x.validate_extraction(raw, T)["resolved_dates"] == {"time": "2026-10-27", "timeframe": "2026-10"}
+
+
+@pytest.mark.parametrize("value, kept", [
+    ("2026-13-45", False), ("2026-02-30", False), ("2026-00", False), ("2026-13", False), ("2026-1-05", False),
+    ("2024-02-29", True), ("2026-12", True), ("2026-01", True),
+])
+def test_resolved_dates_must_be_real_days_and_months(value, kept):
+    out = x.validate_extraction({"resolved_dates": {"time": value}}, T)["resolved_dates"]
+    assert (out == {"time": value}) is kept
+
+
+def test_feeling_is_a_span_or_none():
+    assert x.validate_extraction({"feeling": "damn frustrating"}, T)["feeling"] == "damn frustrating"
+    assert x.validate_extraction({"feeling": "angry"}, T)["feeling"] is None  # never inferred
+    assert x.validate_extraction({"feeling": 3}, T)["feeling"] is None
+    assert x.validate_extraction({}, T)["feeling"] is None
 
 
 def test_cause_validated_as_span():
