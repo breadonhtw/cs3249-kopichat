@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isDeletePrompt } from '../chips.ts';
+import { isDeletePrompt, SUMMARY_CHIP } from '../chips.ts';
 import { isCrisis, type useSession } from '../useSession.ts';
 import { ChipRow } from './ChipRow.tsx';
 import { Composer } from './Composer.tsx';
@@ -8,10 +8,15 @@ import { InlineConfirm } from './InlineConfirm.tsx';
 import { OverflowMenu } from './OverflowMenu.tsx';
 import { Thread } from './Thread.tsx';
 
-type Props = { session: ReturnType<typeof useSession> };
+type Props = {
+  session: ReturnType<typeof useSession>;
+  /** The thread as a record only: no composer, no overflow, one way forward. Used when the student looks back from the summary. */
+  readOnly?: boolean;
+  onCheckSummary?: () => void;
+};
 
 /** The conversation: the thread as a record, and below it one thing to do at a time. */
-export function ChatScreen({ session }: Props) {
+export function ChatScreen({ session, readOnly = false, onCheckSummary }: Props) {
   const { state } = session;
   const input = useRef<HTMLTextAreaElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -59,7 +64,15 @@ export function ChatScreen({ session }: Props) {
   return (
     <div className="chat" ref={root}>
       <Thread items={state.thread} overall={state.overall} counter={state.counter} busy={state.busy} />
-      {crisis ? (
+      {readOnly ? (
+        <div className="dock" ref={dockRef}>
+          <div className="chips">
+            <button type="button" className="chip" onClick={onCheckSummary}>
+              {SUMMARY_CHIP}
+            </button>
+          </div>
+        </div>
+      ) : crisis ? (
         <div className="dock" ref={dockRef}>
           <InlineConfirm
             sentence="The questions are paused. Nothing has been sent."
