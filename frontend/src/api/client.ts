@@ -104,16 +104,25 @@ export function chipAction(label: string): string | null {
 
 const SESSION_KEY = 'kopichat.session';
 
+/** A new session id, remembered for this tab when storage allows. */
+function freshSessionId(): string {
+  const fresh = crypto.randomUUID();
+  try {
+    globalThis.sessionStorage?.setItem(SESSION_KEY, fresh);
+  } catch {
+    // storage blocked: the id lives in memory only
+  }
+  return fresh;
+}
+
 function storedSessionId(): string {
   try {
     const existing = globalThis.sessionStorage?.getItem(SESSION_KEY);
     if (existing) return existing;
-    const fresh = crypto.randomUUID();
-    globalThis.sessionStorage?.setItem(SESSION_KEY, fresh);
-    return fresh;
   } catch {
-    return crypto.randomUUID();
+    // storage blocked: fall through to a fresh id
   }
+  return freshSessionId();
 }
 
 async function failureMessage(res: Response): Promise<string> {
@@ -126,7 +135,8 @@ async function failureMessage(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-export function createClient(fetchImpl: typeof fetch = fetch, sessionId: string = storedSessionId()) {
+export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: string = storedSessionId()) {
+  let sessionId = initialSessionId;
   async function send<T>(method: string, url: string, body?: Record<string, unknown>): Promise<T> {
     const init: RequestInit = { method };
     if (body) {
@@ -138,10 +148,16 @@ export function createClient(fetchImpl: typeof fetch = fetch, sessionId: string 
     return (await res.json()) as T;
   }
   const post = <T>(url: string, body: Record<string, unknown>) => send<T>('POST', url, { session_id: sessionId, ...body });
-  const summaryUrl = `/api/summary/${encodeURIComponent(sessionId)}`;
+  const summaryUrl = () => `/api/summary/${encodeURIComponent(sessionId)}`;
 
   return {
-    sessionId,
+    get sessionId() {
+      return sessionId;
+    },
+    /** Forget this session and use a new id from now on. Nothing on the server is touched. */
+    renew: (next: string = freshSessionId()) => {
+      sessionId = next;
+    },
     session: () => post<SessionInfo>('/api/session', {}),
     consent: () => post<{ phase: Phase; state: ServerState }>('/api/consent', { agreed: true }),
     overall: (value: string | null) => post<TurnResult>('/api/overall', { value }),
@@ -153,12 +169,13 @@ export function createClient(fetchImpl: typeof fetch = fetch, sessionId: string 
     },
     /** The written fallback in one request: the answers go straight to the summary, with no model involved. */
     fallback: (answers: FallbackAnswers) => post<TurnResult>('/api/turn', { action: 'fallback', answers }),
-    summary: () => send<{ rows: SummaryRow[]; approved: boolean }>('GET', summaryUrl),
-    editSummary: (key: string, text: string) => send<{ rows: SummaryRow[] }>('PATCH', summaryUrl, { key, text }),
+    summary: () => send<{ rows: SummaryRow[]; approved: boolean }>('GET', summaryUrl()),
+    editSummary: (key: string, text: string) => send<{ rows: SummaryRow[] }>('PATCH', summaryUrl(), { key, text }),
     // Only the summary screen's approve handler may call this.
     submit: () => post<SubmitResult>('/api/submit', { approved: true }),
     withdraw: () => post<{ ok: true }>('/api/withdraw', {}),
     contact: (contact: string) => post<{ ok: true }>('/api/contact', { contact }),
+    /** The demo reset: restores the seed accounts and clears every session. Only the demo bar may call this. */
     reset: () => post<{ ok: true }>('/api/admin/reset', {}),
   };
 }

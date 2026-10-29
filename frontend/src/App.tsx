@@ -125,7 +125,7 @@ export function App() {
             ) : screen === 'deleted' ? (
               <div className="card">
                 <p className="body">Deleted. Nothing was sent.</p>
-                <button type="button" className="btn btn--retry" disabled={state.busy} onClick={() => void session.restart()}>
+                <button type="button" className="btn btn--retry" disabled={state.busy} onClick={() => void session.startAgain()}>
                   Start again
                 </button>
               </div>

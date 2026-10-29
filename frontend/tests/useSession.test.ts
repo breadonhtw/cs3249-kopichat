@@ -63,3 +63,24 @@ test('a live submission plays the receipt', () => {
   const s = sessionReducer({ ...initialSession, phase: 'summary', restoredReceipt: true }, { type: 'submitted', account: { id: 'a', ref_code: 'KR-1' }, aggregate: {} as any });
   assert.equal(s.restoredReceipt, false);
 });
+
+test('start again makes a new session and never calls the demo reset', async () => {
+  const { restartDemo, startAgain } = await import('../src/useSession.ts');
+  assert.notEqual(restartDemo, startAgain);
+  const calls: string[] = [];
+  const info = { consultation: { id: 'c' } as any, state: { phase: 'consent' as const }, llm: 'none' };
+  const client = {
+    renew: () => { calls.push('renew'); },
+    reset: async () => { calls.push('reset'); return { ok: true as const }; },
+    session: async () => { calls.push('session'); return info; },
+  };
+  const events: any[] = [];
+  await startAgain(client, (e) => events.push(e));
+  assert.deepEqual(calls, ['renew', 'session']);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'loaded');
+  assert.equal(events[0].phase, 'consent');
+  calls.length = 0;
+  await restartDemo(client, () => {});
+  assert.deepEqual(calls, ['reset', 'session']);
+});

@@ -95,3 +95,30 @@ test('an empty contact is sent as it is, to clear the stored one', async () => {
   await createClient(f, 'sid').contact('');
   assert.deepEqual(calls[0].body, { session_id: 'sid', contact: '' });
 });
+
+test('renew switches every later request to a new session id', async () => {
+  const { f, calls } = fakeFetch({ '/api/session': () => ({ json: {} }), '/api/summary/new-id': () => ({ json: { rows: [], approved: false } }) });
+  const c = createClient(f, 'old-id');
+  c.renew('new-id');
+  assert.equal(c.sessionId, 'new-id');
+  await c.session();
+  await c.summary();
+  assert.deepEqual(calls[0].body, { session_id: 'new-id' });
+  assert.equal(calls[1].url, '/api/summary/new-id');
+  assert.ok(!calls.some((call) => call.url === '/api/admin/reset'));
+});
+
+test('renew without an id stores a fresh one for the tab', async () => {
+  const store = new Map<string, string>();
+  const g = globalThis as any;
+  const saved = g.sessionStorage;
+  g.sessionStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) };
+  try {
+    const c = createClient((async () => ({ ok: true, status: 200, json: async () => ({}) })) as any, 'old-id');
+    c.renew();
+    assert.notEqual(c.sessionId, 'old-id');
+    assert.equal(store.get('kopichat.session'), c.sessionId);
+  } finally {
+    g.sessionStorage = saved;
+  }
+});

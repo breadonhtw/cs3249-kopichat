@@ -216,6 +216,18 @@ export function messageOf(e: unknown): string {
 
 type Emit = (event: SessionEvent) => void;
 
+/** The demo reset, for the demo bar only: every submission and session is cleared, then a session is loaded. */
+export async function restartDemo(client: Pick<Client, 'reset' | 'session'>, emit: Emit): Promise<void> {
+  await client.reset();
+  emit(loadedEvent(await client.session()));
+}
+
+/** A student starting over: a new session id and a fresh session. Nothing stored is touched. */
+export async function startAgain(client: Pick<Client, 'renew' | 'session'>, emit: Emit): Promise<void> {
+  client.renew();
+  emit(loadedEvent(await client.session()));
+}
+
 /** The load event for a session, with the receipt's account, aggregate and summary when it has already sent one. */
 export function loadedEvent(info: SessionInfo): SessionEvent {
   return {
@@ -391,9 +403,9 @@ export function useSession(client: Client) {
       });
       return ok;
     },
-    restart: () => run(async (emit) => {
-      await client.reset();
-      emit(loadedEvent(await client.session()));
-    }),
+    /** The demo bar's "Restart demo" only: wipes the store. */
+    restart: () => run((emit) => restartDemo(client, emit)),
+    /** The student's "Start again": a new session, nothing wiped. */
+    startAgain: () => run((emit) => startAgain(client, emit)),
   };
 }
