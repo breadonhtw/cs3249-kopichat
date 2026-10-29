@@ -61,7 +61,9 @@ def apply_extraction(state: dict, ex: dict) -> dict:
         any_met = any(_span(v) is not None for v in dim_state["checks"].values())
         if dim in addressed:
             dim_state["state"] = "provided"  # a fresh answer re-opens even a declined dimension
-        elif any_met and dim_state["state"] != "declined":
+        elif any_met and dim_state["state"] in ("not_asked", "provided"):
+            # an ended dimension (explicit_none, not_applicable, declined) stays ended
+            # unless this extraction itself carries a span for it (handled above)
             dim_state["state"] = "provided"
 
     # The LLM may end a dimension only when the student addressed it in this same extraction.

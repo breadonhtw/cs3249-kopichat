@@ -1,3 +1,5 @@
+import pytest
+
 from backend import content, policy as p, schema as s
 
 
@@ -128,3 +130,26 @@ def test_new_state_shape():
     assert set(st) == {"consultation_id", "dims", "overall", "phase", "follow_ups_used", "last_target", "pending_question", "interpretation",
                        "resolved_dates", "edits", "approved", "transcript", "last_action", "stopped"}
     assert st["phase"] == "consent" and st["approved"] is False and st["stopped"] is None and st["follow_ups_used"] == 0
+
+
+@pytest.mark.parametrize("key", ["explicit_none", "not_applicable"])
+def test_ended_dimension_stays_ended_when_other_dimensions_are_extracted(key):
+    st = p.apply_extraction(p.new_state("c"), ex({"q3_effect": {"impact_type": "no effect on me"}}, **{key: ["q3_effect"]}))
+    assert st["dims"]["q3_effect"]["state"] == key
+    st = p.apply_extraction(st, ex({"q1_what": {"behaviour": "a", "place": "b"}}))
+    q3 = st["dims"]["q3_effect"]
+    assert q3["state"] == key and q3["score"] == 0 and s.is_closed(q3)
+    assert p.next_target(st)[0] != "q3_effect"
+    # a fresh q3 span from the student re-opens it
+    st = p.apply_extraction(st, ex({"q3_effect": {"consequence": "late for class"}}))
+    assert st["dims"]["q3_effect"]["state"] == "provided"
+
+
+def test_declined_reopens_only_with_a_new_span_for_it():
+    st = p.new_state("c")
+    st["dims"]["q3_effect"]["checks"]["impact_type"] = "time"
+    st["dims"]["q3_effect"]["state"] = "declined"
+    st = p.apply_extraction(st, ex({"q1_what": {"behaviour": "a"}}))
+    assert st["dims"]["q3_effect"]["state"] == "declined"
+    st = p.apply_extraction(st, ex({"q3_effect": {"degree": "20 min"}}))
+    assert st["dims"]["q3_effect"]["state"] == "provided"
