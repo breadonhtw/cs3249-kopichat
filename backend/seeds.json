@@ -1,0 +1,557 @@
+{
+  "consultation_id": "campus-visitors-2026",
+  "groups": [
+    {
+      "theme": "transport",
+      "name": "Morning boarding at Kent Ridge MRT"
+    },
+    {
+      "theme": "transport",
+      "name": "Access obstruction"
+    },
+    {
+      "theme": "transport",
+      "name": "No noticeable boarding effect"
+    },
+    {
+      "theme": "food",
+      "name": "Lunch queue at Frontier"
+    },
+    {
+      "theme": "study",
+      "name": "Study space at CLB"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "A",
+      "theme": "transport",
+      "group": "Morning boarding at Kent Ridge MRT",
+      "excerpt": "Couldn't board two A2s, 8.30 to 9am, twice in a fortnight",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "Couldn't board two A2 buses at Kent Ridge MRT, around 8.30 to 9am",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "twice in the last two weeks",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "late for a 9am lecture",
+          "status": "quoted"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "I think the visitors are a factor",
+          "status": "quoted"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "campus-visitors-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "B",
+      "theme": "transport",
+      "group": "Morning boarding at Kent Ridge MRT",
+      "excerpt": "Full A2 at about 9am; no idea why, just full",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "The A2 was full at Kent Ridge MRT at about 9am",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "no idea why, just full",
+          "status": "quoted"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "campus-visitors-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "C",
+      "theme": "transport",
+      "group": "Access obstruction",
+      "standalone": true,
+      "note": "a single account, kept visible",
+      "excerpt": "D2 at UTown: wheelchair space taken by a visitor's luggage",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "On the D2 at UTown the wheelchair space was taken up by a visitor's luggage",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "waited one extra bus",
+          "status": "quoted"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 0,
+          "state": "not_asked"
+        },
+        "q3_effect": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "campus-visitors-2026",
+      "is_seed": true,
+      "transcript": []
+    },
+    {
+      "id": "D",
+      "theme": "transport",
+      "group": "No noticeable boarding effect",
+      "standalone": true,
+      "note": "a student guide; no noticeable effect",
+      "excerpt": "Student guide: no boarding effect; tours at 10am and 2pm",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "I guide tours; they are booked at fixed 10am and 2pm slots",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "no noticeable boarding effect",
+          "status": "explicit_none"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 0,
+          "state": "not_asked"
+        },
+        "q3_effect": {
+          "score": 0,
+          "state": "explicit_none"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "campus-visitors-2026",
+      "is_seed": true,
+      "transcript": []
+    },
+    {
+      "id": "E",
+      "theme": "food",
+      "group": "Lunch queue at Frontier",
+      "excerpt": "Frontier queue 12-1pm longer this month; visitors or exams",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "The queue at Frontier between 12 and 1pm has been longer this month",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "could be visitors, could be exam period",
+          "status": "quoted"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "campus-visitors-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "F",
+      "theme": "study",
+      "group": "Study space at CLB",
+      "excerpt": "Visitors photographing in CLB reading area, twice last week",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "Visitors were photographing in a reading area at CLB",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "twice last week",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "campus-visitors-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    }
+  ]
+}
