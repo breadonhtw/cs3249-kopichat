@@ -23,9 +23,8 @@ def default_db_path() -> str:
     return os.environ.get("KOPICHAT_DB") or str(REPO_ROOT / "backend" / "kopichat.db")
 
 
-DB_PATH = default_db_path()
-Path(DB_PATH).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
-STORE = store.Store(DB_PATH)
+Path(default_db_path()).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+STORE = store.Store(default_db_path())
 STORE.init()
 SESSIONS: dict[str, dict] = {}
 
@@ -126,6 +125,8 @@ def overall(body: OverallBody):
 def turn(body: TurnBody):
     state = _session(body.session_id)["state"]
     message, action = body.message, body.action
+    if action == "start_chat":
+        raise HTTPException(status_code=409, detail="The chat starts through /api/overall.")
     if action is None and message is not None:
         label = message.strip()
         if label in CHIP_ACTIONS:
@@ -158,6 +159,8 @@ def submit(body: SubmitBody):
     if body.approved is not True:
         raise HTTPException(status_code=400, detail="Approval is required before anything is stored.")
     state = session["state"]
+    if state["phase"] not in ("summary", "receipt"):
+        raise HTTPException(status_code=409, detail="Nothing to submit yet.")
     state["approved"] = True
     account = STORE.submit(body.session_id, state, policy.build_summary(state))
     if not account["theme"]:

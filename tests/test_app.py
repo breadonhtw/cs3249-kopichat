@@ -24,7 +24,13 @@ def _to_chat(client, sid="t", overall="Negatively"):
     return client.post("/api/overall", json={"session_id": sid, "value": overall}).json()
 
 
+def _to_summary(sid="t"):
+    from backend import app as a
+    a.SESSIONS[sid]["state"]["phase"] = "summary"  # as if the questions had run out
+
+
 def _submit(client, sid="t"):
+    _to_summary(sid)
     return client.post("/api/submit", json={"session_id": sid, "approved": True}).json()
 
 
@@ -52,6 +58,7 @@ def test_journey_round_trip(client, monkeypatch):
     assert any(r["key"] == "what" and "first A2" in r["text"] for r in rows)
     e = client.patch("/api/summary/t", json={"key": "often", "text": "3 times in the last 2 weeks"}).json()
     assert next(r for r in e["rows"] if r["key"] == "often")["status"] == "edited"
+    _to_summary()
     s = client.post("/api/submit", json={"session_id": "t", "approved": True}).json()
     assert s["account"]["ref_code"].startswith("KR-") and s["aggregate"]["contributors"] == 7 and s["aggregate"]["group"]["count"] == 3
     s2 = client.post("/api/submit", json={"session_id": "t", "approved": True}).json()
@@ -227,9 +234,9 @@ def test_reset_clears_sessions_and_submissions(client):
 
 
 def test_default_db_path_is_absolute_and_independent_of_cwd(monkeypatch, tmp_path):
-    monkeypatch.delenv("KOPICHAT_DB", raising=False)
     from pathlib import Path
-    from backend import app as a
+    from backend import app as a  # imported while the autouse fixture's KOPICHAT_DB is set
+    monkeypatch.delenv("KOPICHAT_DB", raising=False)
     p1 = a.default_db_path()
     monkeypatch.chdir(tmp_path)
     p2 = a.default_db_path()
@@ -248,3 +255,20 @@ def test_default_log_dir_is_absolute_and_independent_of_cwd(monkeypatch, tmp_pat
     monkeypatch.chdir(tmp_path)
     d = logbook._log_dir()
     assert d.is_absolute() and d.parts[-2:] == ("backend", "logs")
+
+
+def test_submit_before_summary_is_409_and_stores_nothing(client):
+    _to_chat(client)
+    r = client.post("/api/submit", json={"session_id": "t", "approved": True})
+    assert r.status_code == 409 and r.json()["detail"] == "Nothing to submit yet."
+    from backend import app as a
+    assert a.STORE.counts("campus-visitors-2026")["contributors"] == 6
+    assert a.SESSIONS["t"]["account_id"] is None
+
+
+def test_turn_refuses_start_chat_action(client):
+    client.post("/api/session", json={"session_id": "t"})
+    r = client.post("/api/turn", json={"session_id": "t", "action": "start_chat"})
+    assert r.status_code == 409
+    from backend import app as a
+    assert a.SESSIONS["t"]["state"]["phase"] == "consent"
