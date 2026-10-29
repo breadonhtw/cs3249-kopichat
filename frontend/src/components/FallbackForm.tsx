@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ActionPair } from './ActionPair.tsx';
 
 export const FALLBACK_QUESTIONS = [
@@ -9,36 +8,53 @@ export const FALLBACK_QUESTIONS = [
   'What would a better experience look like',
 ];
 
-type Props = { busy: boolean; onCancel: () => void; onSubmit: (answers: string[]) => void };
+type Props = {
+  /** One value per question. Held by the parent, so closing the form keeps what was typed. */
+  answers: string[];
+  /** Indices the server has already taken; they are shown, not sent again. */
+  posted: number[];
+  busy: boolean;
+  onChange: (index: number, text: string) => void;
+  onCancel: () => void;
+  /** The answers still to send, in order. */
+  onSubmit: (items: { index: number; text: string }[]) => void;
+};
 
-export function FallbackForm({ busy, onCancel, onSubmit }: Props) {
-  const [answers, setAnswers] = useState<string[]>(() => FALLBACK_QUESTIONS.map(() => ''));
-  const given = answers.map((a) => a.trim()).filter((a) => a !== '');
+export function FallbackForm({ answers, posted, busy, onChange, onCancel, onSubmit }: Props) {
+  const items = answers
+    .map((text, index) => ({ index, text: text.trim() }))
+    .filter((item) => item.text !== '' && !posted.includes(item.index));
+  // After a partial send there may be nothing new to post, only the summary left to ask for.
+  const ready = items.length > 0 || posted.length > 0;
 
   return (
     <form
       className="card"
       onSubmit={(e) => {
         e.preventDefault();
-        if (given.length > 0) onSubmit(given);
+        if (ready && !busy) onSubmit(items);
       }}
     >
       <h2 className="fallback__title">Write your answers here instead</h2>
       <p className="note">The assistant did not reply twice in a row. Answer any of these, in your own words. Leave a box empty to skip it.</p>
-      {FALLBACK_QUESTIONS.map((label, i) => (
-        <label key={label} className="field">
-          <span className="field__label">{label}</span>
-          <textarea
-            className="field__input"
-            rows={3}
-            value={answers[i]}
-            onChange={(e) => setAnswers(answers.map((a, j) => (j === i ? e.target.value : a)))}
-          />
-        </label>
-      ))}
+      {FALLBACK_QUESTIONS.map((label, i) => {
+        const sent = posted.includes(i);
+        return (
+          <label key={label} className="field">
+            <span className="field__label">{sent ? `${label} (sent)` : label}</span>
+            <textarea
+              className="field__input"
+              rows={3}
+              value={answers[i]}
+              readOnly={sent}
+              onChange={(e) => onChange(i, e.target.value)}
+            />
+          </label>
+        );
+      })}
       <ActionPair
         secondary={{ label: 'Cancel', onClick: onCancel, disabled: busy }}
-        primary={{ label: 'Check my summary', onClick: () => given.length > 0 && onSubmit(given), disabled: busy || given.length === 0 }}
+        primary={{ label: 'Check my summary', onClick: () => ready && onSubmit(items), disabled: busy || !ready }}
       />
     </form>
   );

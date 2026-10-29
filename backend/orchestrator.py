@@ -25,7 +25,8 @@ def _result(state: dict, reply: str, chips: list[str] | None = None, options: li
     if chips is None:
         chips = list(DEFAULT_CHIPS) if state["pending_question"] else []
     return {"reply": reply, "chips": chips, "options": options or [], "state": state,
-            "counter": _counter(state), "phase": state["phase"]}
+            "counter": _counter(state), "phase": state["phase"],
+            "unavailable": reply in (content.UNAVAILABLE_MESSAGE, content.NO_LLM_MESSAGE)}
 
 
 def _with_pending(state: dict, text: str) -> str:

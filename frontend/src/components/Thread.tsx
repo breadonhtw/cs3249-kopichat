@@ -57,7 +57,7 @@ export function Thread({ items, overall, counter, busy }: Props) {
           {item.text}
         </p>
       ))}
-      <div ref={end} aria-hidden="true" />
+      <div ref={end} className="thread__end" aria-hidden="true" />
     </div>
   );
 }

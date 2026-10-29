@@ -22,6 +22,8 @@ export type TurnResult = {
   state: ServerState;
   counter: string;
   phase: Phase;
+  /** The reply is the server's unavailable notice (the model could not be reached or is not configured). */
+  unavailable: boolean;
 };
 
 export type SummaryRow = {

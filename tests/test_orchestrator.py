@@ -38,7 +38,7 @@ def test_storyboard_acks_and_counters(fake):
     assert r1["reply"] == "Packed buses, and late again. " + c.QUESTIONS[("q1_what","behaviour")]
     assert r1["counter"] == "Follow-up 1 of up to 5" and r1["phase"] == "chat"
     assert r1["chips"] == ["Skip this question", "Why do you ask?", "Pause"] and r1["options"] == []
-    assert set(r1) == {"reply", "chips", "options", "state", "counter", "phase"}
+    assert set(r1) == {"reply", "chips", "options", "state", "counter", "phase", "unavailable"}
     r2 = run(st, STUDENT[1])
     assert r2["reply"] == "You couldn't get onto the first A2. " + c.QUESTIONS[("q3_effect","consequence")]
 
@@ -157,6 +157,22 @@ def test_no_llm_leaves_state_untouched():
     before = json.dumps(st)
     r = run(st, "x")
     assert r["reply"] == c.NO_LLM_MESSAGE and json.dumps(st) == before
+
+def test_unavailable_flag_marks_both_unavailable_replies(fake):
+    fake(llm.LLMError("timeout"))
+    st = p.new_state("c"); run(st, action="start_chat")
+    assert run(st, "x")["unavailable"] is True
+
+def test_unavailable_flag_when_no_llm_is_configured():
+    st = p.new_state("c"); run(st, action="start_chat")
+    r = run(st, "x")
+    assert r["reply"] == c.NO_LLM_MESSAGE and r["unavailable"] is True
+
+def test_unavailable_flag_is_false_for_ordinary_replies(fake):
+    st = p.new_state("c")
+    assert run(st, action="start_chat")["unavailable"] is False
+    assert run(st, action="why")["unavailable"] is False
+    assert run(st, action="stop")["unavailable"] is False
 
 def test_non_continue_messages_never_enter_the_transcript(fake, monkeypatch):
     sent = []

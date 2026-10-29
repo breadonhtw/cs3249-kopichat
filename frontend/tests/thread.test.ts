@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderItemClass } from '../src/components/Thread.tsx';
 import { chipRow, DEFAULT_CHIPS } from '../src/chips.ts';
-import { initialSession, isCrisis, sessionReducer, UNAVAILABLE_TEXT } from '../src/useSession.ts';
+import { failureEvent, initialSession, isCrisis, sessionReducer } from '../src/useSession.ts';
+import { shouldSend } from '../src/composerKeys.ts';
+import { ApiError } from '../src/api/client.ts';
 import { closedLine } from '../src/closedLine.ts';
 import type { TurnResult } from '../src/api/client.ts';
 
@@ -28,26 +30,81 @@ test('options replace the chips and carry no summary chip', () => {
   assert.deepEqual(chipRow(DEFAULT_CHIPS, ['A', 'None of these'], 2, 'chat'), ['A', 'None of these']);
 });
 
-const result = (reply: string): TurnResult => ({ reply, chips: DEFAULT_CHIPS, options: [], state: {} as any, counter: '', phase: 'chat' });
+const result = (reply: string, unavailable = false): TurnResult => ({ reply, chips: DEFAULT_CHIPS, options: [], state: {} as any, counter: '', phase: 'chat', unavailable });
+const UNAVAILABLE = 'The assistant is unavailable right now. Your replies are kept. Send your message again in a moment.';
 
-test('an unavailable reply sets the phase and counts in a row; a normal reply resets the count', () => {
-  const once = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'turn', result: result(UNAVAILABLE_TEXT) });
+test('an unavailable reply is a status line, sets the phase and counts in a row; a normal reply resets the count', () => {
+  const once = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'turn', result: result(UNAVAILABLE, true) });
   assert.equal(once.phase, 'unavailable');
   assert.equal(once.unavailableStreak, 1);
-  const twice = sessionReducer(once, { type: 'turn', result: result(UNAVAILABLE_TEXT) });
+  assert.deepEqual(once.thread.at(-1), { role: 'status', text: UNAVAILABLE });
+  const twice = sessionReducer(once, { type: 'turn', result: result(UNAVAILABLE, true) });
   assert.equal(twice.unavailableStreak, 2);
   const ok = sessionReducer(twice, { type: 'turn', result: result('Q?') });
   assert.equal(ok.phase, 'chat');
   assert.equal(ok.unavailableStreak, 0);
+  assert.deepEqual(ok.thread.at(-1), { role: 'agent', text: 'Q?' });
 });
 
-test('a failed turn request is an unavailable reply, and the thread stays intact', () => {
+test('the same reply text without the unavailable flag is an ordinary agent reply', () => {
+  const s = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'turn', result: result(UNAVAILABLE) });
+  assert.equal(s.unavailableStreak, 0);
+  assert.equal(s.thread.at(-1)?.role, 'agent');
+});
+
+test('an unreachable server is a status line and counts toward the fallback', () => {
   const before = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'student', text: 'hello' });
-  const after = sessionReducer(before, { type: 'unavailable' });
+  const after = sessionReducer(before, { type: 'unreachable' });
   assert.equal(after.phase, 'unavailable');
   assert.equal(after.unavailableStreak, 1);
-  assert.deepEqual(after.thread, [...before.thread, { role: 'agent', text: UNAVAILABLE_TEXT }]);
+  assert.deepEqual(after.thread.at(-1), { role: 'status', text: 'Could not reach the assistant. Your message was not sent.' });
   assert.deepEqual(after.chips, DEFAULT_CHIPS);
+});
+
+test('a rejected request shows its detail, never counts toward the fallback and leaves the phase', () => {
+  const s = sessionReducer({ ...initialSession, phase: 'chat', unavailableStreak: 1 }, { type: 'rejected', message: 'Unknown session.' });
+  assert.equal(s.phase, 'chat');
+  assert.equal(s.unavailableStreak, 1);
+  assert.deepEqual(s.thread.at(-1), { role: 'status', text: 'Unknown session.' });
+});
+
+test('failures are classified: 4xx rejected, network and 5xx unreachable', () => {
+  assert.deepEqual(failureEvent(new ApiError(404, 'Unknown session.')), { type: 'rejected', message: 'Unknown session.' });
+  assert.deepEqual(failureEvent(new ApiError(503, 'x')), { type: 'unreachable' });
+  assert.deepEqual(failureEvent(new TypeError('Failed to fetch')), { type: 'unreachable' });
+});
+
+test('an unsent message leaves the thread and returns to the composer', () => {
+  const sent = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'student', text: 'hello' });
+  const dropped = sessionReducer(sent, { type: 'discardStudent', text: 'hello' });
+  assert.deepEqual(dropped.thread, []);
+  const back = sessionReducer(dropped, { type: 'restoreDraft', text: 'hello' });
+  assert.equal(back.draft?.text, 'hello');
+  assert.equal(sessionReducer(back, { type: 'draftTaken' }).draft, null);
+});
+
+test('discardStudent removes only the latest matching student item', () => {
+  const s = sessionReducer(
+    { ...initialSession, thread: [{ role: 'student', text: 'a' }, { role: 'agent', text: 'Q' }, { role: 'student', text: 'a' }, { role: 'status', text: 'x' }] },
+    { type: 'discardStudent', text: 'a' },
+  );
+  assert.deepEqual(s.thread, [{ role: 'student', text: 'a' }, { role: 'agent', text: 'Q' }, { role: 'status', text: 'x' }]);
+});
+
+test('posted fallback answers are remembered by index', () => {
+  const a = sessionReducer(initialSession, { type: 'fallbackPosted', index: 2 });
+  const b = sessionReducer(a, { type: 'fallbackPosted', index: 0 });
+  assert.deepEqual(b.fallbackPosted, [2, 0]);
+});
+
+const key = (over: Record<string, unknown> = {}) => ({ key: 'Enter', shiftKey: false, keyCode: 13, nativeEvent: { isComposing: false }, ...over }) as any;
+
+test('Enter sends; Shift+Enter, composition and keyCode 229 do not', () => {
+  assert.equal(shouldSend(key()), true);
+  assert.equal(shouldSend(key({ shiftKey: true })), false);
+  assert.equal(shouldSend(key({ nativeEvent: { isComposing: true } })), false);
+  assert.equal(shouldSend(key({ keyCode: 229 })), false);
+  assert.equal(shouldSend(key({ key: 'a', keyCode: 65 })), false);
 });
 
 test('restore puts the pending question and the default chips back', () => {

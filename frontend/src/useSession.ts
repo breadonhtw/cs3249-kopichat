@@ -5,8 +5,7 @@ import type { Aggregate, Consultation, Phase, ServerState, SummaryRow, TurnResul
 
 export type Client = ReturnType<typeof createClient>;
 
-/** The server's reply when the model cannot be reached (backend/content.py UNAVAILABLE_MESSAGE). */
-export const UNAVAILABLE_TEXT = 'The assistant is unavailable right now. Your replies are kept. Send your message again in a moment.';
+const UNREACHABLE_TEXT = 'Could not reach the assistant. Your message was not sent.';
 
 // Chips with no request behind them: they only put the pending question and the default chips back.
 const RESTORE_LABELS = new Set(['Keep draft', 'Continue without the name', 'Continue with my general experience', 'None of these']);
@@ -34,6 +33,10 @@ export type SessionState = {
   error: string | null;
   /** Unavailable replies in a row; two bring up the written fallback. */
   unavailableStreak: number;
+  /** A message that did not go through, handed back to the composer. Cleared once the composer has taken it. */
+  draft: { text: string } | null;
+  /** Indices of the written fallback's answers the server has already taken. */
+  fallbackPosted: number[];
 };
 
 export type SessionEvent =
@@ -43,7 +46,12 @@ export type SessionEvent =
   | { type: 'student'; text: string }
   | { type: 'turn'; result: TurnResult }
   | { type: 'busy'; value: boolean }
-  | { type: 'unavailable' }
+  | { type: 'unreachable' }
+  | { type: 'rejected'; message: string }
+  | { type: 'discardStudent'; text: string }
+  | { type: 'restoreDraft'; text: string }
+  | { type: 'draftTaken' }
+  | { type: 'fallbackPosted'; index: number }
   | { type: 'restore' }
   | { type: 'summary'; rows: SummaryRow[] }
   | { type: 'submitted'; account: { id: string; ref_code: string }; aggregate: Aggregate }
@@ -64,6 +72,8 @@ export const initialSession: SessionState = {
   busy: false,
   error: null,
   unavailableStreak: 0,
+  draft: null,
+  fallbackPosted: [],
 };
 
 export function sessionReducer(state: SessionState, event: SessionEvent): SessionState {
@@ -99,29 +109,50 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
     case 'student':
       return { ...state, thread: [...state.thread, { role: 'student', text: event.text }], chips: [], options: [] };
     case 'turn': {
-      const unavailable = event.result.reply === UNAVAILABLE_TEXT;
+      const { result } = event;
       return {
         ...state,
-        phase: unavailable ? 'unavailable' : event.result.phase,
-        unavailableStreak: unavailable ? state.unavailableStreak + 1 : 0,
-        thread: [...state.thread, { role: 'agent', text: event.result.reply }],
-        chips: event.result.chips,
-        options: event.result.options,
-        counter: event.result.counter,
-        serverState: event.result.state,
+        phase: result.unavailable ? 'unavailable' : result.phase,
+        unavailableStreak: result.unavailable ? state.unavailableStreak + 1 : 0,
+        // An unavailable notice is the system speaking about itself, not a question: it is a status line.
+        thread: [...state.thread, { role: result.unavailable ? 'status' : 'agent', text: result.reply }],
+        chips: result.chips,
+        options: result.options,
+        counter: result.counter,
+        serverState: result.state,
         error: null,
       };
     }
-    case 'unavailable':
+    case 'unreachable':
       return {
         ...state,
         phase: 'unavailable',
         unavailableStreak: state.unavailableStreak + 1,
-        thread: [...state.thread, { role: 'agent', text: UNAVAILABLE_TEXT }],
-        chips: DEFAULT_CHIPS,
+        thread: [...state.thread, { role: 'status', text: UNREACHABLE_TEXT }],
+        chips: state.chips.length > 0 ? state.chips : DEFAULT_CHIPS,
         options: [],
         error: null,
       };
+    case 'rejected':
+      return {
+        ...state,
+        thread: [...state.thread, { role: 'status', text: event.message }],
+        chips: state.chips.length > 0 ? state.chips : DEFAULT_CHIPS,
+        error: null,
+      };
+    case 'discardStudent': {
+      let at = -1;
+      state.thread.forEach((item, i) => {
+        if (item.role === 'student' && item.text === event.text) at = i;
+      });
+      return at === -1 ? state : { ...state, thread: state.thread.filter((_, i) => i !== at) };
+    }
+    case 'restoreDraft':
+      return { ...state, draft: { text: event.text } };
+    case 'draftTaken':
+      return { ...state, draft: null };
+    case 'fallbackPosted':
+      return { ...state, fallbackPosted: [...state.fallbackPosted, event.index] };
     case 'restore': {
       const pending = state.serverState?.pending_question;
       return {
@@ -140,6 +171,12 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
     case 'error':
       return { ...state, busy: false, error: event.message };
   }
+}
+
+/** What a failed turn request means for the thread: a 4xx is the server refusing (its detail is shown and never counts toward the fallback); anything else is the assistant being out of reach. */
+export function failureEvent(e: unknown): SessionEvent {
+  if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { type: 'rejected', message: e.message };
+  return { type: 'unreachable' };
 }
 
 function messageOf(e: unknown): string {
@@ -197,17 +234,33 @@ export function useSession(client: Client) {
     return () => { ignore = true; };
   }, [load]);
 
+  // Sends one turn. False when it did not go through: the unsent message leaves the thread, so a resend does not appear twice.
+  const deliver = useCallback(
+    async (emit: Emit, message?: string, action?: string): Promise<boolean> => {
+      let ok = true;
+      try {
+        const result = await client.turn(message, action);
+        emit({ type: 'turn', result });
+        ok = !result.unavailable;
+      } catch (e) {
+        emit(failureEvent(e));
+        ok = false;
+      }
+      if (!ok && message !== undefined) emit({ type: 'discardStudent', text: message });
+      return ok;
+    },
+    [client],
+  );
+
   const turn = useCallback(
     (message?: string, action?: string) => run(async (emit) => {
-      try {
-        emit({ type: 'turn', result: await client.turn(message, action) });
-      } catch {
-        // A turn that cannot be delivered reads the same as the server's unavailable reply.
-        emit({ type: 'unavailable' });
-      }
+      // A message that did not go through is handed back to the composer.
+      if (!(await deliver(emit, message, action)) && message !== undefined) emit({ type: 'restoreDraft', text: message });
     }),
-    [client, run],
+    [deliver, run],
   );
+
+  const draftTaken = useCallback(() => dispatch({ type: 'draftTaken' }), []);
 
   return {
     state,
@@ -240,25 +293,16 @@ export function useSession(client: Client) {
       dispatch({ type: 'student', text });
       return turn(text);
     },
-    /** The written fallback: each answer is a turn in order, then the summary. Stops at the first answer the server could not take. */
-    submitFallback: (answers: string[]) => run(async (emit) => {
-      for (const text of answers) {
+    /** The written fallback: each unposted answer is a turn in order, then the summary. Stops at the first the server could not take; posted answers are remembered. */
+    submitFallback: (items: { index: number; text: string }[]) => run(async (emit) => {
+      for (const { index, text } of items) {
         emit({ type: 'student', text });
-        try {
-          const result = await client.turn(text);
-          emit({ type: 'turn', result });
-          if (result.reply === UNAVAILABLE_TEXT) return;
-        } catch {
-          emit({ type: 'unavailable' });
-          return;
-        }
+        if (!(await deliver(emit, text))) return;
+        emit({ type: 'fallbackPosted', index });
       }
-      try {
-        emit({ type: 'turn', result: await client.turn(undefined, 'finish') });
-      } catch {
-        emit({ type: 'unavailable' });
-      }
+      await deliver(emit, undefined, 'finish');
     }),
+    draftTaken,
     /** The student closes the consultation without deleting; nothing else is sent. */
     close: () => dispatch({ type: 'phase', phase: 'done' }),
     skip: () => turn(undefined, 'skip'),

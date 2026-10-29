@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { sessionReducer, initialSession } from '../src/useSession.ts';
 
 test('turn appends agent reply and sets chips and counter', () => {
-  const s = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'turn', result: { reply: 'Q?', chips: ['Skip this question'], options: [], state: {} as any, counter: 'Follow-up 1 of up to 5', phase: 'chat' } });
+  const s = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'turn', result: { reply: 'Q?', chips: ['Skip this question'], options: [], state: {} as any, counter: 'Follow-up 1 of up to 5', phase: 'chat', unavailable: false } });
   assert.deepEqual(s.thread.at(-1), { role: 'agent', text: 'Q?' });
   assert.equal(s.counter, 'Follow-up 1 of up to 5');
 });
