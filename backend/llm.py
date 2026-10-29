@@ -113,7 +113,7 @@ def _anthropic_create(**kwargs):
     return resp
 
 
-def chat(system, messages, max_tokens=500, json_mode=False):
+def chat(system, messages, max_tokens=20000, json_mode=False):
     """Send a system prompt plus a list of {"role", "content"} turns; return the reply text.
 
     messages alternate "user" / "assistant" and end with a "user" turn.
