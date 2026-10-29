@@ -5,6 +5,8 @@ import pytest
 def no_real_llm(monkeypatch):
     """Tests never call a real LLM, even if your .env has an API key."""
     monkeypatch.setenv("LLM_PROVIDER", "none")
+    # A dummy key, so tests that switch the provider on (and patch chat_json) are not read as 'no key'.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
 
 
 @pytest.fixture(autouse=True)

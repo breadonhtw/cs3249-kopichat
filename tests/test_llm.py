@@ -22,3 +22,21 @@ def test_blank_timeout_env_falls_back_to_default(monkeypatch):
     finally:
         monkeypatch.undo()
         importlib.reload(llm)
+
+
+def test_enabled_needs_a_key_for_the_chosen_provider(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setattr(llm, "OPENAI_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    assert llm.enabled() is False
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    assert llm.enabled() is True
+
+
+def test_enabled_needs_an_anthropic_key_too(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setattr(llm, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    assert llm.enabled() is False
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy-key")
+    assert llm.enabled() is True

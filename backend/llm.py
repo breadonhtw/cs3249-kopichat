@@ -47,8 +47,18 @@ def provider():
     return "none"
 
 
+def _has_key(name):
+    if name == "anthropic":
+        return bool(ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY"))
+    if name == "openai":
+        return bool(OPENAI_API_KEY or os.environ.get("OPENAI_API_KEY"))
+    return False
+
+
 def enabled():
-    return provider() in DEFAULT_MODELS
+    """True only when the chosen provider is known and has a key, so a missing key reads as 'no LLM', not 'LLM down'."""
+    name = provider()
+    return name in DEFAULT_MODELS and _has_key(name)
 
 
 def model():
