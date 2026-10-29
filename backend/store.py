@@ -174,6 +174,11 @@ class Store:
             self._require(c, account_id)
             c.execute("INSERT OR REPLACE INTO contacts (account_id, contact) VALUES (?, ?)", (account_id, contact))
 
+    def clear_contact(self, account_id: str) -> None:
+        with self._conn() as c:
+            self._require(c, account_id)
+            c.execute("DELETE FROM contacts WHERE account_id = ?", (account_id,))
+
     # --- reads (withdrawn accounts never appear) ---------------------------
 
     def get(self, account_id: str) -> dict:
