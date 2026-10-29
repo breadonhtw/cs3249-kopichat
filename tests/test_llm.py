@@ -1,5 +1,5 @@
 # tests/test_llm.py
-import os, pytest
+import importlib, os, pytest
 from backend import llm
 
 def test_no_key_in_source():
@@ -13,3 +13,12 @@ def test_disabled_without_provider():
 
 def test_parse_json_tolerates_fences():
     assert llm.parse_json('```json\n{"a": 1}\n```') == {"a": 1}
+
+def test_blank_timeout_env_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("LLM_TIMEOUT", "")
+    try:
+        importlib.reload(llm)
+        assert llm.TIMEOUT_SECONDS == 8.0
+    finally:
+        monkeypatch.undo()
+        importlib.reload(llm)

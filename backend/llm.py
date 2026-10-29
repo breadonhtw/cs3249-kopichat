@@ -26,9 +26,9 @@ LLM_MODEL = ""
 
 DEFAULT_MODELS = {
     "anthropic": "claude-haiku-4-5-20251001",
-    "openai": "gpt-6-luna",
+    "openai": "default",  # SoCLaaS exposes its model as 'default'; real OpenAI users set LLM_MODEL.
 }
-TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT", "8"))
+TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT") or "8")
 
 
 class LLMError(Exception):
