@@ -6,7 +6,7 @@ from backend.schema import CHECKS, DIMENSIONS
 
 ROUTES = {"continue", "crisis", "out_of_scope_person", "out_of_scope_appeal",
           "meta_why", "meta_anonymous", "stop", "unclear"}
-MAX_MESSAGE_CHARS = 600
+MAX_MESSAGE_CHARS = prompts.MAX_MESSAGE_CHARS
 
 ACK_MAX_CHARS = 80
 ACK_BANNED = ["sounds", "sorry", "frustrating", "because"]
@@ -19,7 +19,8 @@ _DATE = re.compile(r"\d{4}-\d{2}(-\d{2})?")
 
 
 def normalise(text: str) -> str:
-    """Lowercase and collapse every run of whitespace to one space."""
+    """Straighten curly quotes, lowercase, and collapse every run of whitespace to one space."""
+    text = text.replace("\u2019", "'").replace("\u2018", "'").replace("\u201c", '"').replace("\u201d", '"')
     return " ".join(text.lower().split())
 
 

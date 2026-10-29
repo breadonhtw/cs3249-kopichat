@@ -1,5 +1,7 @@
 """Prompt text for the extraction call. The LLM proposes; backend/extract.py decides what survives."""
 
+MAX_MESSAGE_CHARS = 600
+
 EXTRACT_SYSTEM = """You read what a university student has said so far in a short feedback consultation and record which details they have given. You only extract. You never reply to the student, advise, or judge.
 
 Output ONE JSON object and nothing else: no prose, no code fence.
@@ -80,7 +82,6 @@ Rules:
 
 def extract_turn(transcript: list[str], today: str) -> str:
     """User message for the extraction call: today's date and the student's messages, oldest first."""
-    from backend.extract import MAX_MESSAGE_CHARS
     lines = [f"Today is {today}.", "Student messages so far, oldest first:"]
     lines += [f"{i}. {m[:MAX_MESSAGE_CHARS]}" for i, m in enumerate(transcript, 1)]
     return "\n".join(lines)

@@ -40,3 +40,83 @@ def test_extract_raises_on_llm_error(monkeypatch):
     monkeypatch.setattr(llm, "chat_json", lambda *a, **k: (_ for _ in ()).throw(llm.LLMError("timeout")))
     with pytest.raises(llm.LLMError):
         x.extract(T, "2026-10-28")
+
+
+# --- validator rules ---
+
+def _complete(out):
+    from backend.schema import CHECKS
+    assert set(out["checks"]) == set(CHECKS)
+    for dim, names in CHECKS.items():
+        assert set(out["checks"][dim]) == set(names)
+    assert out["route"] == "continue"
+
+
+@pytest.mark.parametrize("raw", [
+    {"checks": None},
+    {"checks": {"q1_what": "x"}},
+    {"unclear_options": "x"},
+    {"interpretation": None},
+    None, [], "text", 7,
+])
+def test_malformed_shapes_degrade_to_defaults(raw):
+    out = x.validate_extraction(raw, T)
+    _complete(out)
+    assert out["interpretation"] == {"cause": None, "uncertain": False}
+    assert out["unclear_options"] == [] and out["resolved_dates"] == {} and out["ack"] == ""
+
+
+def test_unclear_options_capped_and_strings_only():
+    raw = {"route": "unclear", "unclear_options": ["a" * 100, 5, None, "b", "c", "d"]}
+    out = x.validate_extraction(raw, T)
+    assert out["unclear_options"] == ["a" * 40, "b", "c"]
+
+
+def test_resolved_dates_filtered():
+    raw = {"resolved_dates": {"time": "2026-10-27", "timeframe": "2026-10", "most_recent": "27/10/2026",
+                              "colour": "2026-10-27", "number": 20261027}}
+    assert x.validate_extraction(raw, T)["resolved_dates"] == {"time": "2026-10-27", "timeframe": "2026-10"}
+
+
+def test_cause_validated_as_span():
+    bad = x.validate_extraction({"interpretation": {"cause": "the driver hates us", "uncertain": True}}, T)
+    assert bad["interpretation"] == {"cause": None, "uncertain": False}
+    good = x.validate_extraction({"interpretation": {"cause": "the buses are always packed", "uncertain": True}}, T)
+    assert good["interpretation"] == {"cause": "the buses are always packed", "uncertain": True}
+
+
+def test_dimension_lists_filtered_to_known_dims():
+    raw = {"explicit_none": ["q3_effect", "q9", 4], "not_applicable": ["q2_often", "nope"]}
+    out = x.validate_extraction(raw, T)
+    assert out["explicit_none"] == ["q3_effect"] and out["not_applicable"] == ["q2_often"]
+
+
+def test_valid_route_kept():
+    assert x.validate_extraction({"route": "meta_why"}, T)["route"] == "meta_why"
+
+
+@pytest.mark.parametrize("span, transcript", [
+    ("couldn’t get onto the first A2", ["Couldn't get onto the first A2."]),
+    ("couldn't get onto the first A2", ["Couldn’t get onto the first A2."]),
+    ("“packed”", ['the bus was "packed"']),
+])
+def test_normalise_folds_curly_quotes(span, transcript):
+    out = x.validate_extraction({"checks": {"q1_what": {"behaviour": span}}}, transcript)
+    assert out["checks"]["q1_what"]["behaviour"] == span
+
+
+def test_extract_happy_path(monkeypatch):
+    seen = {}
+
+    def fake(system, messages, max_tokens=500):
+        seen.update(system=system, messages=messages)
+        return {"checks": {"q1_what": {"place": "Kent Ridge MRT", "persons": "a tour guide"}}, "route": "continue"}
+
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setattr(llm, "chat_json", fake)
+    out = x.extract(T, "2026-10-28")
+    content = seen["messages"][0]["content"]
+    assert seen["messages"][0]["role"] == "user"
+    assert "Today is 2026-10-28." in content and T[0] in content and T[1] in content
+    assert out["checks"]["q1_what"]["place"] == "Kent Ridge MRT"
+    assert out["checks"]["q1_what"]["persons"] is None
