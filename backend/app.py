@@ -14,9 +14,16 @@ from pydantic import BaseModel
 
 from backend import aggregate, content, llm, orchestrator, policy, store
 
-DB_PATH = os.environ.get("KOPICHAT_DB", "backend/kopichat.db")
-FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
+
+def default_db_path() -> str:
+    """KOPICHAT_DB if set, else backend/kopichat.db under the repo root (never relative to the cwd)."""
+    return os.environ.get("KOPICHAT_DB") or str(REPO_ROOT / "backend" / "kopichat.db")
+
+
+DB_PATH = default_db_path()
 Path(DB_PATH).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 STORE = store.Store(DB_PATH)
 STORE.init()

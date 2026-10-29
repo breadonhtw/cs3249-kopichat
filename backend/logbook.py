@@ -4,7 +4,8 @@ import os
 import re
 from pathlib import Path
 
-DEFAULT_LOG_DIR = Path(__file__).parent / "logs"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_LOG_DIR = REPO_ROOT / "backend" / "logs"
 
 
 def _log_dir() -> Path:

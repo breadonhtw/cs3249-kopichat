@@ -224,3 +224,27 @@ def test_reset_clears_sessions_and_submissions(client):
     assert client.get("/api/summary/t").status_code == 404
     from backend import app as a
     assert a.STORE.counts("campus-visitors-2026")["contributors"] == 6
+
+
+def test_default_db_path_is_absolute_and_independent_of_cwd(monkeypatch, tmp_path):
+    monkeypatch.delenv("KOPICHAT_DB", raising=False)
+    from pathlib import Path
+    from backend import app as a
+    p1 = a.default_db_path()
+    monkeypatch.chdir(tmp_path)
+    p2 = a.default_db_path()
+    assert p1 == p2 and Path(p1).is_absolute()
+    assert Path(p1).parts[-2:] == ("backend", "kopichat.db")
+    monkeypatch.setenv("KOPICHAT_DB", "")  # an empty override falls back to the default
+    assert a.default_db_path() == p1
+    monkeypatch.setenv("KOPICHAT_DB", str(tmp_path / "x.db"))
+    assert a.default_db_path() == str(tmp_path / "x.db")
+
+
+def test_default_log_dir_is_absolute_and_independent_of_cwd(monkeypatch, tmp_path):
+    monkeypatch.delenv("KOPICHAT_LOG_DIR", raising=False)
+    from pathlib import Path
+    from backend import logbook
+    monkeypatch.chdir(tmp_path)
+    d = logbook._log_dir()
+    assert d.is_absolute() and d.parts[-2:] == ("backend", "logs")
