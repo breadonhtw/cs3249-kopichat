@@ -100,7 +100,7 @@ def test_consultation_shape():
 
 def test_why_covers_every_dimension():
     assert set(c.WHY) == set(s.DIMENSIONS)
-    assert c.WHY["q1_what"] == "So NUSSU can tell what happened from a general impression. You can skip it."
+    assert c.WHY["q1_what"] == "So NUSSU can tell a specific event from a general impression. You can skip it."
     assert c.WHY["q2_often"] == "So NUSSU can tell a one-off from a pattern. You can skip it."
     assert c.WHY["q3_effect"] == "So NUSSU can tell whether this is an inconvenience or something that affects classes. You can skip it."
     assert c.WHY["q4_basis"] == "So NUSSU knows whether this is first-hand. You can skip it."
@@ -109,9 +109,19 @@ def test_why_covers_every_dimension():
 
 def test_opening_and_fixed_messages_verbatim():
     assert c.OPENING == "In your own words, what's been happening? A recent example helps most."
-    assert c.ANONYMOUS_MESSAGE == "Only NUSSU's consultation team sees your replies. Your name and NUSID are not stored with them. Nothing is sent until you approve the summary. Shall we continue?"
+    assert c.ANONYMOUS_MESSAGE == "Your replies are read by an AI service and by NUSSU's consultation team. No name or student ID is collected, so none is stored with them. Nothing goes to NUSSU until you approve the summary. Shall we continue?"
     assert c.OUT_OF_SCOPE_PERSON == "Kopichat collects experiences of campus services, not reports about named individuals. For a concern about a person, contact the Office of Student Affairs. Shall we continue without the name?"
     assert c.OUT_OF_SCOPE_APPEAL == "Kopichat cannot handle individual appeals or casework. For that, contact your faculty office or the Office of Student Affairs. Shall we continue with your general experience?"
+
+
+def test_product_name_drives_out_of_scope_copy():
+    assert c.PRODUCT_NAME == "Kopichat"
+    assert c.OUT_OF_SCOPE_PERSON.startswith(c.PRODUCT_NAME + " ")
+    assert c.OUT_OF_SCOPE_APPEAL.startswith(c.PRODUCT_NAME + " ")
+
+
+def test_no_nusid_in_copy():
+    assert not any("NUSID" in t for t in _module_strings())
     assert c.CRISIS_MESSAGE == "Thank you for telling me. If you are in distress, please contact [care line] now. The questions are paused; nothing has been sent."
     assert c.UNAVAILABLE_MESSAGE == "The assistant is unavailable right now. Your replies are kept. Send your message again in a moment."
     assert c.NO_LLM_MESSAGE == "This app needs an LLM to run. Add an API key in .env, then restart the server."
