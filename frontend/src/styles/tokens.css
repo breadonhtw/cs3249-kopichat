@@ -1,4 +1,5 @@
-/* Hallmark · theme: ink (by request) · ink: paper · scope: app · deviations: tinted-262, no-outlier, motion-submission-only, teal-means-received, one-family · waive 47b: one demo phone frame, live app inside */
+/* Hallmark · theme: ink (by request) · ink: paper · scope: app · deviations: tinted-262, no-outlier, motion-submission-only, teal-means-received, one-family */
+/* sloplint: Floor 0 FAIL · Reflex 0 (0 waived; stale 47b waiver removed, gate does not fire) · 29 Oct 2026 */
 :root {
   color-scheme: light;
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;

@@ -3,6 +3,7 @@ import { client } from './api/clientInstance.ts';
 import { closedLine } from './closedLine.ts';
 import { ChatScreen } from './components/ChatScreen.tsx';
 import { ConsentCard } from './components/ConsentCard.tsx';
+import { DemoBar } from './components/DemoBar.tsx';
 import { NoticeStrip } from './components/NoticeStrip.tsx';
 import { OverallQuestion } from './components/OverallQuestion.tsx';
 import { Receipt } from './components/Receipt.tsx';
@@ -66,6 +67,9 @@ export function App() {
               System view
             </button>
           </div>
+        )}
+        {laptop && import.meta.env.DEV && (
+          <DemoBar phase={state.phase} busy={state.busy} onRestart={() => void session.restart()} onSend={(text) => void session.send(text)} />
         )}
         <div className="shell">
           <NoticeStrip
