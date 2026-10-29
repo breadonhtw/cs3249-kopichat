@@ -1,4 +1,5 @@
 """Extraction: ask the LLM what the student has said, then keep only what the code can verify."""
+import math
 import re
 
 from backend import llm, prompts
@@ -16,12 +17,28 @@ EXTRACT_MAX_TOKENS = 1000
 
 _ALL_CHECKS = {c for names in CHECKS.values() for c in names}
 _DATE = re.compile(r"\d{4}-\d{2}(-\d{2})?")
+_WORD = re.compile(r"[a-z]+(?:'[a-z]+)?")
+ACK_MIN_WORD_LEN = 4
 
 
 def normalise(text: str) -> str:
     """Straighten curly quotes, lowercase, and collapse every run of whitespace to one space."""
     text = text.replace("\u2019", "'").replace("\u2018", "'").replace("\u201c", '"').replace("\u201d", '"')
     return " ".join(text.lower().split())
+
+
+def _content_words(text: str) -> list[str]:
+    """Normalised words of 4+ letters, punctuation stripped."""
+    return [w for w in _WORD.findall(normalise(text)) if len(w) >= ACK_MIN_WORD_LEN]
+
+
+def _grounded(ack: str, transcript_words: set[str]) -> bool:
+    """An ack must reuse the student's words: at least half of its content words appear in the transcript.
+    An ack with no content words ("Got it.") says nothing the student did not, so it stays."""
+    words = _content_words(ack)
+    if not words:
+        return True
+    return sum(w in transcript_words for w in words) >= math.ceil(len(words) / 2)
 
 
 def _span(value, haystack: str):
@@ -64,6 +81,8 @@ def validate_extraction(raw: dict, transcript: list[str]) -> dict:
     ack = ack.strip()
     if any(word in ack.lower() for word in ACK_BANNED):
         ack = ""
+    if ack and not _grounded(ack, set(_WORD.findall(haystack))):
+        ack = ""  # an ack that does not reuse the student's words is not shown (this also stops injected text)
     ack = ack[:ACK_MAX_CHARS]
 
     route = raw.get("route")

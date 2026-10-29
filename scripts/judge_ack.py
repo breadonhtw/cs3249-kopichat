@@ -114,6 +114,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="print the judge prompts; call no LLM, write no file")
     args = parser.parse_args(argv)
 
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        print("judge_ack.main() makes real LLM calls and must not run under pytest.", file=sys.stderr)
+        return 2
+
     log_dir = Path(os.environ.get("KOPICHAT_LOG_DIR") or logbook.DEFAULT_LOG_DIR)
     turns = load_turns(log_dir) if log_dir.is_dir() else []
     if not turns:
