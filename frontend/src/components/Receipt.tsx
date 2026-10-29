@@ -15,9 +15,8 @@ type Props = {
   summary: SummaryRow[];
   withdrawn: boolean;
   busy: boolean;
-  error: string | null;
-  onWithdraw: () => Promise<void> | void;
-  onContact: (contact: string) => Promise<void> | void;
+  onWithdraw: (onError: (message: string) => void) => Promise<boolean>;
+  onContact: (contact: string, onError: (message: string) => void) => Promise<boolean>;
   onDone: () => void;
 };
 
@@ -26,7 +25,7 @@ function others(count: number): string {
   return `You and ${count - 1} ${count - 1 === 1 ? 'other' : 'others'}`;
 }
 
-export function Receipt({ consultation, account, aggregate, summary, withdrawn, busy, error, onWithdraw, onContact, onDone }: Props) {
+export function Receipt({ consultation, account, aggregate, summary, withdrawn, busy, onWithdraw, onContact, onDone }: Props) {
   // Nothing to play when there is no aggregate; reduced motion shows the end state at once.
   const [settled, setSettled] = useState(() => aggregate === null || reducedMotion());
   const [stage, setStage] = useState(0);
@@ -52,15 +51,11 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
   const [confirming, setConfirming] = useState(false);
   const [wantsUpdate, setWantsUpdate] = useState(false);
   const [contact, setContact] = useState('');
-  const [saving, setSaving] = useState(false);
+  // "Contact saved." is written only after the server has taken the contact. Errors sit under the control that failed.
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (saving && !busy) {
-      setSaving(false);
-      setSaved(error === null);
-    }
-  }, [saving, busy, error]);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const status = withdrawn ? 'Withdrawn. Your account will not be included.' : saved ? 'Contact saved.' : '';
 
   const youExcerpt = youExcerptOf(summary);
   const sent = summary.filter((r) => r.key !== 'overall');
@@ -71,6 +66,7 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
   const counterTo = aggregate === null ? 0 : aggregate.contributors;
   const counterPlays = playing && reached('writeIn');
   const kept = reached('kept');
+  const closed = reached('closing');
 
   return (
     <div className={settled ? 'receipt receipt--settled' : 'receipt'} onClick={() => setSettled(true)}>
@@ -177,6 +173,7 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
                     onChange={(e) => {
                       setContact(e.target.value);
                       setSaved(false);
+                      setContactError(null);
                     }}
                   />
                 </div>
@@ -184,36 +181,52 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
                   type="button"
                   className="btn"
                   disabled={busy || contact.trim() === ''}
-                  onClick={() => {
-                    setSaving(true);
-                    void onContact(contact.trim());
+                  onClick={async () => {
+                    setSaved(false);
+                    setContactError(null);
+                    setSaved(await onContact(contact.trim(), setContactError));
                   }}
                 >
                   Save contact
                 </button>
-                {saved && <p className="muted" role="status">Contact saved.</p>}
+                {contactError && <p className="muted">{contactError}</p>}
                 <p className="muted">Your contact detail is stored apart from your replies and deleted after the final update.</p>
               </div>
             )}
           </>
         )}
 
-        {withdrawn ? (
-          <p className="body" role="status">Withdrawn. Your account will not be included.</p>
-        ) : confirming && account ? (
+        {/* Mounted empty and always present, so a screen reader announces what is written into it. */}
+        <p className={status === '' ? 'visually-hidden' : 'body'} role="status">{status}</p>
+
+        {withdrawn ? null : confirming && account ? (
           <InlineConfirm
             sentence={`Withdraw ${account.ref_code}? It will not be included.`}
             secondary={{ label: 'Keep', onClick: () => setConfirming(false) }}
-            primary={{ label: 'Withdraw', onClick: () => void onWithdraw() }}
+            primary={{
+              label: 'Withdraw',
+              onClick: async () => {
+                setWithdrawError(null);
+                if (await onWithdraw(setWithdrawError)) heading.current?.focus();
+              },
+            }}
             busy={busy}
           />
         ) : (
           account && (
-            <button type="button" className="receipt__link" onClick={() => setConfirming(true)}>
+            <button
+              type="button"
+              className="receipt__link"
+              onClick={() => {
+                setWithdrawError(null);
+                setConfirming(true);
+              }}
+            >
               Withdraw my account
             </button>
           )
         )}
+        {withdrawError && !withdrawn && <p className="muted">{withdrawError}</p>}
 
         <details className="receipt__notice">
           <summary className="receipt__link">Data notice</summary>
@@ -227,7 +240,7 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
       </section>
 
       {aggregate !== null && !withdrawn && (
-        <p className={playing && !kept ? 'receipt__closing' : 'receipt__closing is-on'}>{aggregate.closing_line}</p>
+        <p className={playing && !closed ? 'receipt__closing' : 'receipt__closing is-on'}>{aggregate.closing_line}</p>
       )}
 
       <button type="button" className="btn btn--primary" onClick={onDone}>

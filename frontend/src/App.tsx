@@ -82,7 +82,6 @@ export function App() {
             summary={state.summary}
             withdrawn={state.phase === 'deleted'}
             busy={state.busy}
-            error={state.error}
             onWithdraw={session.withdraw}
             onContact={session.contact}
             onDone={session.close}

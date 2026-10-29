@@ -179,6 +179,11 @@ export function failureEvent(e: unknown): SessionEvent {
   return { type: 'unreachable' };
 }
 
+// A failed withdraw or contact is shown beside its own control, so the hook hands the message to the caller instead of the global error.
+function actionMessage(e: unknown): string {
+  return e instanceof ApiError ? e.message : 'Could not reach the assistant.';
+}
+
 function messageOf(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   return 'Could not reach the server. Check your connection and try again.';
@@ -319,11 +324,33 @@ export function useSession(client: Client) {
       const r = await client.submit();
       emit({ type: 'submitted', account: r.account, aggregate: r.aggregate });
     }),
-    withdraw: () => run(async (emit) => {
-      await client.withdraw();
-      emit({ type: 'phase', phase: 'deleted' });
-    }),
-    contact: (c: string) => run(async () => { await client.contact(c); }),
+    /** True once the server has withdrawn the account. On failure `onError` gets the message and the global error is left alone. */
+    withdraw: async (onError?: (message: string) => void): Promise<boolean> => {
+      let ok = false;
+      await run(async (emit) => {
+        try {
+          await client.withdraw();
+          ok = true;
+          emit({ type: 'phase', phase: 'deleted' });
+        } catch (e) {
+          onError?.(actionMessage(e));
+        }
+      });
+      return ok;
+    },
+    /** True once the server has stored the contact. Same error handling as `withdraw`. */
+    contact: async (c: string, onError?: (message: string) => void): Promise<boolean> => {
+      let ok = false;
+      await run(async () => {
+        try {
+          await client.contact(c);
+          ok = true;
+        } catch (e) {
+          onError?.(actionMessage(e));
+        }
+      });
+      return ok;
+    },
     restart: () => run(async (emit) => {
       await client.reset();
       const info = await client.session();

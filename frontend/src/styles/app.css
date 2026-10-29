@@ -153,7 +153,7 @@
 .receipt__notice { border-top: var(--rule-hair) solid var(--color-rule); }
 .receipt__notice-row { display: flex; flex-direction: column; gap: var(--space-2xs); padding-bottom: var(--space-sm); }
 .receipt__notice-row p { font-size: var(--text-md); line-height: 1.5; color: var(--color-ink-2); }
-.receipt__closing { max-width: none; font-family: var(--font-display); font-weight: 400; font-size: var(--text-base); line-height: 1.5; color: var(--color-ink); opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
+.receipt__closing { max-width: none; font-family: var(--font-display); font-weight: 400; font-size: var(--text-base); line-height: 1.5; color: var(--color-ink); opacity: 0; transition: opacity 300ms var(--ease-out); }
 .receipt__closing.is-on { opacity: 1; }
 .receipt--settled *, .receipt--settled *::before { transition: none !important; }
 @media (prefers-reduced-motion: reduce) { .receipt__stamp, .ledger__row--you { opacity: 1; transform: none; } .ledger__label, .receipt__note, .receipt__closing, .ledger__rows--group::before, .ledger__row--differing .ledger__first, .ledger__row--differing .ledger__kept { opacity: 1; } }

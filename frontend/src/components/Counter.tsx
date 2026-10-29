@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { countFrames } from '../motion.ts';
+import { countFrames, frameAt } from '../motion.ts';
 
 const TICK_MS = 600;
 
@@ -19,12 +19,14 @@ export function Counter({ from, to, play }: Props) {
     setValue(from);
     setLanded(false);
     const frames = countFrames(from, to, TICK_MS);
-    const start = performance.now();
+    // The clock starts at the first frame's own timestamp, so elapsed is never negative.
+    let start: number | null = null;
     let raf = 0;
     const step = (now: number) => {
-      const t = Math.min(1, (now - start) / TICK_MS);
-      setValue(frames[Math.min(frames.length - 1, Math.floor(t * (frames.length - 1)))]!);
-      if (t < 1) raf = requestAnimationFrame(step);
+      start ??= now;
+      const elapsed = now - start;
+      setValue(frameAt(frames, elapsed, TICK_MS));
+      if (elapsed < TICK_MS) raf = requestAnimationFrame(step);
       else setLanded(to > from);
     };
     raf = requestAnimationFrame(step);
