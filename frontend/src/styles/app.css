@@ -107,3 +107,53 @@
 .summary__edit-button:disabled { cursor: not-allowed; opacity: 0.45; }
 .summary__edit { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
 .summary__input { width: 100%; min-height: 96px; padding: var(--space-xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule); border-radius: 10px; background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-base); line-height: 1.45; resize: vertical; }
+
+/* Receipt: a stamped notice, then the ledger. Motion is opacity and transform only; durations match BEATS in motion.ts. */
+.receipt { display: flex; flex-direction: column; gap: var(--space-lg); }
+.receipt__head { display: flex; flex-direction: column; gap: var(--space-2xs); }
+.receipt__stamp { max-width: none; font-size: var(--text-display); line-height: 1; color: var(--color-ink); transform-origin: left center; opacity: 0; transform: scale(1.08); transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out); }
+.receipt__stamp.is-on { opacity: 1; transform: none; }
+.receipt__stamp:focus { outline: none; }
+.receipt__code { font-size: var(--text-lg); line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--color-ink); }
+.receipt__card { display: flex; flex-direction: column; gap: var(--space-md); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
+.receipt__facts { display: flex; flex-direction: column; gap: var(--space-2xs); }
+.receipt__count { display: flex; flex-direction: column; gap: var(--space-3xs); }
+.counter { font-family: var(--font-display); font-weight: 700; font-size: var(--text-display-s); line-height: 1.1; letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.counter__num { font-variant-numeric: tabular-nums; }
+.counter--landed { color: var(--color-accent); }
+
+.ledger { border-top: var(--rule-hair) solid var(--color-ink); }
+.ledger__rows { margin: 0; padding: 0; list-style: none; }
+.ledger__row { display: grid; grid-template-columns: 6.5rem 1fr; gap: var(--space-sm); padding: var(--space-sm) 0; border-bottom: var(--rule-hair) solid var(--color-rule); font-family: var(--font-body); }
+.ledger__first { font-size: var(--text-sm); line-height: 1.4; color: var(--color-muted); overflow-wrap: anywhere; }
+.ledger__excerpt { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2xs); min-width: 0; font-size: var(--text-md); line-height: 1.4; color: var(--color-ink-2); overflow-wrap: anywhere; }
+.ledger__pill { padding: var(--space-3xs) var(--space-xs); border-radius: var(--radius-pill); background: var(--color-accent-soft); color: var(--color-accent-soft-ink); font-size: var(--text-sm); line-height: 1.3; }
+.ledger__kept { font-size: var(--text-sm); line-height: 1.4; color: var(--color-muted); }
+.ledger__row--you { opacity: 0; transform: translateY(4px); transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out); }
+.ledger__row--you.is-on { opacity: 1; transform: none; }
+.ledger__row--differing .ledger__first, .ledger__row--differing .ledger__kept { opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
+.ledger__row--differing.is-on .ledger__first, .ledger__row--differing.is-on .ledger__kept { opacity: 1; }
+.ledger__group { padding-top: var(--space-sm); }
+.ledger__label { display: flex; flex-direction: column; gap: var(--space-3xs); padding-bottom: var(--space-xs); opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
+.ledger__group.is-on .ledger__label { opacity: 1; }
+.ledger__name { font-size: var(--text-md); font-weight: 600; line-height: 1.3; color: var(--color-ink); }
+.ledger__count { font-size: var(--text-sm); line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--color-muted); }
+.ledger__rows--group { position: relative; padding-left: var(--space-sm); }
+.ledger__rows--group::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--color-ink); opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
+.ledger__group.is-on .ledger__rows--group::before { opacity: 1; }
+
+.receipt__differing { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-sm); }
+.receipt__note { color: var(--color-muted); opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
+.receipt__note.is-on { opacity: 1; }
+.receipt__contact { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+.receipt__contact .field { align-self: stretch; }
+.receipt__input { width: 100%; min-height: 48px; padding: var(--space-xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule); border-radius: 10px; background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-base); }
+.receipt__link { display: flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.16em; cursor: pointer; list-style: none; }
+.receipt__link::-webkit-details-marker { display: none; }
+.receipt__notice { border-top: var(--rule-hair) solid var(--color-rule); }
+.receipt__notice-row { display: flex; flex-direction: column; gap: var(--space-2xs); padding-bottom: var(--space-sm); }
+.receipt__notice-row p { font-size: var(--text-md); line-height: 1.5; color: var(--color-ink-2); }
+.receipt__closing { max-width: none; font-family: var(--font-display); font-weight: 400; font-size: var(--text-base); line-height: 1.5; color: var(--color-ink); opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
+.receipt__closing.is-on { opacity: 1; }
+.receipt--settled *, .receipt--settled *::before { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .receipt__stamp, .ledger__row--you { opacity: 1; transform: none; } .ledger__label, .receipt__note, .receipt__closing, .ledger__rows--group::before, .ledger__row--differing .ledger__first, .ledger__row--differing .ledger__kept { opacity: 1; } }

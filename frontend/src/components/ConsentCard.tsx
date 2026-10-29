@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Consultation } from '../api/client.ts';
+import { consentRows } from '../copy.ts';
 import { ActionPair } from './ActionPair.tsx';
 
 type Props = { consultation: Consultation; busy: boolean; onAgree: () => void };
@@ -54,18 +55,11 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
         summary.
       </p>
       <div className="rows">
-        <Row title="Why NUSSU is asking">{consultation.why}</Row>
-        <Row title="Who can see your responses">
-          The NUSSU consultation team sees your approved summary and your replies. No name or student ID is collected.
-        </Row>
-        <Row title="How findings are used">
-          Approved accounts are grouped into themes, reviewed by NUSSU, and summarised in a public consultation update. Only
-          approved material is used.
-        </Row>
-        <Row title="Stopping at any point">
-          You can skip any question, pause, or stop and delete what you typed before approving. Nothing is sent until you
-          approve.
-        </Row>
+        {consentRows(consultation.why).map((row) => (
+          <Row key={row.title} title={row.title}>
+            {row.body}
+          </Row>
+        ))}
       </div>
       <label className="check">
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />

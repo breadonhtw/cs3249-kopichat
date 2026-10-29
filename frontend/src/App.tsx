@@ -5,6 +5,7 @@ import { ChatScreen } from './components/ChatScreen.tsx';
 import { ConsentCard } from './components/ConsentCard.tsx';
 import { NoticeStrip } from './components/NoticeStrip.tsx';
 import { OverallQuestion } from './components/OverallQuestion.tsx';
+import { Receipt } from './components/Receipt.tsx';
 import { SummaryCard } from './components/SummaryCard.tsx';
 import { useSession } from './useSession.ts';
 
@@ -32,14 +33,16 @@ export function App() {
   const onOverall = consultation !== null && state.phase === 'overall';
   const onSummary = consultation !== null && inSummary && !lookingBack;
   const onChat = consultation !== null && (state.phase === 'chat' || state.phase === 'unavailable' || (inSummary && lookingBack));
-  const stepped = onOverall || onChat || onSummary;
+  // A withdrawal moves the server to `deleted`; the receipt stays up to say so.
+  const onReceipt = consultation !== null && (state.phase === 'receipt' || (state.phase === 'deleted' && state.account !== null));
+  const stepped = onOverall || onChat || onSummary || onReceipt;
 
   return (
     <div className="shell">
       <NoticeStrip
         line1={stepped ? consultation.title : 'Kopichat'}
-        line2={onOverall ? 'Step 1 of 3' : onChat ? 'Step 2 of 3' : onSummary ? 'Step 3 of 3' : 'NUSSU consultation'}
-        step={onOverall ? 1 : onChat ? 2 : onSummary ? 3 : undefined}
+        line2={onOverall ? 'Step 1 of 3' : onChat ? 'Step 2 of 3' : onSummary || onReceipt ? 'Step 3 of 3' : 'NUSSU consultation'}
+        step={onOverall ? 1 : onChat ? 2 : onSummary || onReceipt ? 3 : undefined}
         fictional
       />
       {state.error && !onSummary && (
@@ -71,6 +74,19 @@ export function App() {
           />
         ) : onChat ? (
           <ChatScreen session={session} readOnly={inSummary} onCheckSummary={() => setLookingBack(false)} />
+        ) : onReceipt ? (
+          <Receipt
+            consultation={consultation}
+            account={state.account}
+            aggregate={state.aggregate}
+            summary={state.summary}
+            withdrawn={state.phase === 'deleted'}
+            busy={state.busy}
+            error={state.error}
+            onWithdraw={session.withdraw}
+            onContact={session.contact}
+            onDone={session.close}
+          />
         ) : state.phase === 'done' ? (
           <p className="body">{closedLine(consultation.closing_date)}</p>
         ) : (
