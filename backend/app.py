@@ -28,7 +28,8 @@ STORE = store.Store(default_db_path())
 STORE.init()
 SESSIONS: dict[str, dict] = {}
 
-# Chip labels the student can tap, mapped to orchestrator actions before handle() runs.
+# Chip labels sent as an action, mapped to orchestrator actions before handle() runs. Typed text is
+# always a message, even when it reads like a chip label.
 CHIP_ACTIONS = {
     "Skip this question": "skip",
     "Why do you ask?": "why",
@@ -38,10 +39,6 @@ CHIP_ACTIONS = {
     "Delete": "delete",
     "Check my summary": "finish",
 }
-# Chips that only dismiss a prompt: the pending question comes back, nothing is extracted.
-NOOP_CHIPS = {"Keep draft", "Continue without the name", "Continue with my general experience",
-              "None of these", "Pause"}
-
 app = FastAPI(title="Kopichat")
 
 
@@ -60,6 +57,7 @@ class OverallBody(SessionBody):
 class TurnBody(SessionBody):
     message: str | None = None
     action: str | None = None
+    answers: dict[str, Any] | None = None  # the written fallback's answers, by dimension
 
 
 class SubmitBody(SessionBody):
@@ -94,11 +92,28 @@ def _account_id(session_id: str) -> str:
     return account_id
 
 
+def _sent(account: dict) -> dict:
+    """What the student's screen needs to show an account already sent: the receipt, settled."""
+    return {"account": {"id": account["id"], "ref_code": account["ref_code"]},
+            "aggregate": aggregate.build(STORE, account["id"]), "summary_rows": account["fields"]}
+
+
 @app.post("/api/session")
 def create_session(body: SessionBody):
-    session = SESSIONS.setdefault(body.session_id, {
-        "state": policy.new_state(content.CONSULTATION["id"]), "account_id": None})
-    return {"consultation": content.CONSULTATION, "state": session["state"], "llm": llm.describe()}
+    session = SESSIONS.get(body.session_id)
+    if session is None:
+        # After a backend restart the session is gone from memory, but its account may be stored.
+        # Then the student is back at their receipt, never at a fresh journey that would resubmit it.
+        state = policy.new_state(content.CONSULTATION["id"])
+        account = STORE.account_for_session(body.session_id)
+        if account is not None:
+            state.update(phase="deleted" if account["withdrawn"] else "receipt", approved=True,
+                         overall=account["overall"])
+        session = SESSIONS[body.session_id] = {"state": state, "account_id": account["id"] if account else None}
+    out = {"consultation": content.CONSULTATION, "state": session["state"], "llm": llm.describe()}
+    if session["account_id"] is not None:
+        out.update(_sent(STORE.get(session["account_id"])))
+    return out
 
 
 @app.post("/api/consent")
@@ -111,9 +126,15 @@ def consent(body: ConsentBody):
     return {"phase": state["phase"], "state": state}
 
 
+ALREADY_SENT = "This account has already been sent."
+
+
 @app.post("/api/overall")
 def overall(body: OverallBody):
-    state = _session(body.session_id)["state"]
+    session = _session(body.session_id)
+    state = session["state"]
+    if session["account_id"] is not None:
+        raise HTTPException(status_code=409, detail=ALREADY_SENT)
     if state["phase"] == "consent":
         raise HTTPException(status_code=409, detail="Agree to continue first.")
     if body.value is not None and body.value not in content.CONSULTATION["overall_options"]:
@@ -128,15 +149,8 @@ def turn(body: TurnBody):
     message, action = body.message, body.action
     if action == "start_chat":
         raise HTTPException(status_code=409, detail="The chat starts through /api/overall.")
-    if action is None and message is not None:
-        label = message.strip()
-        if label in CHIP_ACTIONS:
-            action, message = CHIP_ACTIONS[label], None
-        elif label in NOOP_CHIPS:
-            if label == "None of these":
-                state["last_options"] = []
-            message = None
-    return orchestrator.handle(state, message, action, _today(), session_id=body.session_id)
+    action = CHIP_ACTIONS.get(action, action)
+    return orchestrator.handle(state, message, action, _today(), session_id=body.session_id, answers=body.answers)
 
 
 @app.get("/api/summary/{session_id}")
@@ -159,8 +173,10 @@ def submit(body: SubmitBody):
     session = _session(body.session_id)
     if body.approved is not True:
         raise HTTPException(status_code=400, detail="Approval is required before anything is stored.")
+    if session["account_id"] is not None:
+        raise HTTPException(status_code=409, detail=ALREADY_SENT)
     state = session["state"]
-    if state["phase"] not in ("summary", "receipt"):
+    if state["phase"] != "summary":
         raise HTTPException(status_code=409, detail="Nothing to submit yet.")
     state["approved"] = True
     account = STORE.submit(body.session_id, state, policy.build_summary(state))
@@ -168,9 +184,10 @@ def submit(body: SubmitBody):
         names = list(STORE.counts(account["consultation_id"])["by_group"].keys())
         cls = aggregate.classify(account, names)
         group = cls["group"]
-        if group and group.startswith(aggregate.NEW_GROUP_PREFIX):
+        new_group = bool(group) and group.startswith(aggregate.NEW_GROUP_PREFIX)
+        if new_group:
             group = group[len(aggregate.NEW_GROUP_PREFIX):].strip()
-        STORE.assign(account["id"], cls["theme"], group, cls["needs_review"])
+        STORE.assign(account["id"], cls["theme"], group, cls["needs_review"], new_group=new_group)
         account = STORE.get(account["id"])
     session["account_id"] = account["id"]
     state["phase"] = "receipt"
@@ -183,6 +200,7 @@ def withdraw(body: SessionBody):
     account_id = _account_id(body.session_id)
     STORE.withdraw(account_id)
     STORE.clear_contact(account_id)
+    _session(body.session_id)["state"]["phase"] = "deleted"  # a reload shows the withdrawal, not "Received"
     return {"ok": True}
 
 
@@ -191,7 +209,9 @@ def contact(body: ContactBody):
     account_id = _account_id(body.session_id)
     text = body.contact.strip()
     if not text:
-        raise HTTPException(status_code=400, detail="A contact is required.")
+        # an empty contact takes the update request back
+        STORE.clear_contact(account_id)
+        return {"ok": True}
     if STORE.get(account_id)["withdrawn"]:
         raise HTTPException(status_code=409, detail="This account has been withdrawn.")
     STORE.set_contact(account_id, text)

@@ -40,3 +40,26 @@ def test_enabled_needs_an_anthropic_key_too(monkeypatch):
     assert llm.enabled() is False
     monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy-key")
     assert llm.enabled() is True
+
+
+def test_provider_is_auto_detected_from_an_anthropic_key(monkeypatch):
+    assert llm.LLM_PROVIDER == ""
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(llm, "OPENAI_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy-key")
+    assert llm.provider() == "anthropic" and llm.enabled() is True
+
+
+def test_provider_is_auto_detected_from_an_openai_key(monkeypatch):
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(llm, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    assert llm.provider() == "openai" and llm.enabled() is True
+
+
+def test_env_example_matches_the_code():
+    text = open(os.path.join(os.path.dirname(llm.__file__), "..", ".env.example")).read()
+    assert "ANTHROPIC_API_KEY=" in text and "LLM_PROVIDER=\n" in text and "LLM_MODEL=\n" in text
+    assert "whichever key is set" in text

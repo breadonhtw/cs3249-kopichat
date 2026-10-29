@@ -19,7 +19,8 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS groups (
     id TEXT PRIMARY KEY,
     theme TEXT NOT NULL,
-    name TEXT NOT NULL UNIQUE
+    name TEXT NOT NULL UNIQUE,
+    pending INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS accounts (
     id TEXT PRIMARY KEY,
@@ -78,6 +79,9 @@ class Store:
     def init(self) -> None:
         with self._conn() as c:
             c.executescript(_SCHEMA)
+            # a database made before groups had a pending flag gets the column
+            if "pending" not in {r["name"] for r in c.execute("PRAGMA table_info(groups)")}:
+                c.execute("ALTER TABLE groups ADD COLUMN pending INTEGER NOT NULL DEFAULT 0")
             if c.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0:
                 self._load_seeds(c)
 
@@ -103,12 +107,14 @@ class Store:
     # --- helpers ---------------------------------------------------------
 
     @staticmethod
-    def _group_id(c: sqlite3.Connection, theme: str, name: str) -> str:
+    def _group_id(c: sqlite3.Connection, theme: str, name: str, pending: bool = False) -> str:
+        """The id of the group with this name, creating it if needed. A group created from a model's
+        proposal is pending until a reviewer names it; an existing group keeps its own flag."""
         row = c.execute("SELECT id FROM groups WHERE name = ?", (name,)).fetchone()
         if row:
             return row["id"]
         gid = uuid.uuid4().hex
-        c.execute("INSERT INTO groups (id, theme, name) VALUES (?, ?, ?)", (gid, theme, name))
+        c.execute("INSERT INTO groups (id, theme, name, pending) VALUES (?, ?, ?, ?)", (gid, theme, name, int(pending)))
         return gid
 
     @staticmethod
@@ -157,10 +163,12 @@ class Store:
                  what[:EXCERPT_LEN]))
             return self._account(c.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone())
 
-    def assign(self, account_id: str, theme: str, group_name: str | None, needs_review: bool) -> None:
+    def assign(self, account_id: str, theme: str, group_name: str | None, needs_review: bool,
+               new_group: bool = False) -> None:
+        """File the account. new_group marks a group the model proposed; it is created pending."""
         with self._conn() as c:
             self._require(c, account_id)
-            gid = self._group_id(c, theme, group_name) if group_name else None
+            gid = self._group_id(c, theme, group_name, pending=new_group) if group_name else None
             c.execute("UPDATE accounts SET theme = ?, group_id = ?, needs_review = ? WHERE id = ?",
                       (theme, gid, int(bool(needs_review)), account_id))
 
@@ -187,6 +195,18 @@ class Store:
         if not row:
             raise KeyError(account_id)
         return self._account(row)
+
+    def account_for_session(self, session_id: str) -> dict | None:
+        """The account this session submitted, withdrawn or not, or None."""
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM accounts WHERE session_id = ?", (session_id,)).fetchone()
+        return self._account(row) if row else None
+
+    def group(self, group_id: str) -> dict | None:
+        """{name, pending} for a group id, or None."""
+        with self._conn() as c:
+            row = c.execute("SELECT name, pending FROM groups WHERE id = ?", (group_id,)).fetchone()
+        return {"name": row["name"], "pending": bool(row["pending"])} if row else None
 
     def group_id_for(self, name: str) -> str | None:
         with self._conn() as c:

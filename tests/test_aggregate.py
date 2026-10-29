@@ -100,9 +100,9 @@ def test_build_shape_and_projection(db):
     a = _submit(db)
     db.assign(a["id"], "transport", "Morning boarding at Kent Ridge MRT", False)
     agg = A.build(db, a["id"])
-    assert set(agg) == {"provisional", "theme", "group", "contributors", "seeds", "differing", "coverage", "closing_line"}
-    assert agg["theme"] == "transport"
-    assert agg["group"]["name"] == "Morning boarding at Kent Ridge MRT"
+    assert set(agg) == {"provisional", "theme", "needs_review", "group", "contributors", "seeds", "differing", "coverage", "closing_line"}
+    assert agg["theme"] == "transport" and agg["needs_review"] is False
+    assert agg["group"]["name"] == "Morning boarding at Kent Ridge MRT" and agg["group"]["pending"] is False
     assert agg["closing_line"] == "This is what NUSSU reads before it decides what to raise."
     assert all(set(o) == {"id", "excerpt"} for o in agg["group"]["others"])
     assert {o["id"] for o in agg["group"]["others"]} == {"A", "B"}
@@ -114,7 +114,8 @@ def test_build_without_group(db):
     a = _submit(db, often=2)
     db.assign(a["id"], "needs_review", None, True)
     agg = A.build(db, a["id"])
-    assert agg["group"] == {"name": None, "count": 1, "others": []}
+    assert agg["group"] == {"name": None, "pending": False, "count": 1, "others": []}
+    assert agg["needs_review"] is True
     assert agg["coverage"]["how_often"] == {"said": 1, "of": 1}
     assert a["id"] not in {d["id"] for d in agg["differing"]}
     assert {"C", "D"} <= {d["id"] for d in agg["differing"]}
@@ -130,3 +131,33 @@ def test_build_excludes_withdrawn_member(db):
     agg = A.build(db, a["id"])
     assert agg["group"]["count"] == 2 and [o["id"] for o in agg["group"]["others"]] == ["B"]
     assert agg["coverage"]["how_often"] == {"said": 1, "of": 2}
+
+
+def test_needs_review_follows_the_account(db):
+    a = _submit(db)
+    db.assign(a["id"], "transport", None, True)  # a theme, but the model was unsure
+    assert A.build(db, a["id"])["needs_review"] is True
+    db.assign(a["id"], "transport", None, False)
+    assert A.build(db, a["id"])["needs_review"] is False
+
+
+def test_a_model_proposed_group_is_pending_and_its_name_is_withheld(db):
+    a = _submit(db)
+    db.assign(a["id"], "transport", "Tour buses hog the A2", False, new_group=True)
+    agg = A.build(db, a["id"])
+    assert agg["group"]["name"] == "New group, pending review" and agg["group"]["pending"] is True
+    assert agg["group"]["count"] == 1
+    # an existing group named the same keeps its own flag
+    b = db.submit("s2", {**p.new_state("campus-visitors-2026"), "approved": True}, [])
+    db.assign(b["id"], "transport", "Morning boarding at Kent Ridge MRT", False, new_group=True)
+    assert A.build(db, b["id"])["group"]["name"] == "Morning boarding at Kent Ridge MRT"
+
+
+def test_an_old_database_gains_the_pending_column(tmp_path):
+    import sqlite3
+    path = str(tmp_path / "old.db")
+    with sqlite3.connect(path) as c:
+        c.execute("CREATE TABLE groups (id TEXT PRIMARY KEY, theme TEXT NOT NULL, name TEXT NOT NULL UNIQUE)")
+        c.execute("INSERT INTO groups VALUES ('g', 'transport', 'Old group')")
+    s = S.Store(path); s.init()
+    assert s.group("g") == {"name": "Old group", "pending": False}

@@ -1,6 +1,6 @@
 """Small wrapper around the LLM APIs. All API calls go through this file.
 
-Put your key in the block below, or in a .env file (see .env.example).
+Keys go in a .env file at the repository root (copy .env.example), never in this file.
 Every call can fail (no network, bad key, rate limit, timeout); callers must
 catch LLMError.
 """
@@ -12,17 +12,16 @@ try:
     from dotenv import load_dotenv
     load_dotenv()          # reads .env if python-dotenv is installed
 except ImportError:
-    pass                   # fine: keys can be set directly in this file
+    pass                   # then set the variables in your shell environment instead
 
 # ---------------------------------------------------------------------------
-# API keys: paste yours here. Leave a value as "" to use .env instead.
-# Do NOT share this file with your key in it.
+# Defaults only. Keys and choices are read from the environment (.env): leave these as "".
 # ---------------------------------------------------------------------------
-LLM_PROVIDER = "openai"     # "anthropic" or "openai" ("" = whichever key is set)
-ANTHROPIC_API_KEY = ""      # your Claude key
-OPENAI_API_KEY = ""         # your OpenAI key (read from .env when "")
+LLM_PROVIDER = ""           # "" = whichever key is set (Anthropic first); LLM_PROVIDER in .env overrides
+ANTHROPIC_API_KEY = ""      # read from ANTHROPIC_API_KEY in .env
+OPENAI_API_KEY = ""         # read from OPENAI_API_KEY in .env
 OPENAI_BASE_URL = "https://soclaas-api.comp.nus.edu.sg/v1"
-LLM_MODEL = ""
+LLM_MODEL = ""              # "" = the provider's default below; LLM_MODEL in .env overrides
 
 DEFAULT_MODELS = {
     "anthropic": "claude-haiku-4-5-20251001",

@@ -8,6 +8,7 @@ from . import content, llm, prompts, store as store_mod
 CLASSIFY_MAX_TOKENS = 200
 GROUP_NAME_MAX = 60
 NEW_GROUP_PREFIX = "new: "
+PENDING_GROUP_NAME = "New group, pending review"  # a model-written group name never reaches the student
 CLOSING_LINE = "This is what NUSSU reads before it decides what to raise."
 _NO_GROUP = "__none__"  # sentinel: excludes no group in store.differing
 
@@ -49,19 +50,21 @@ def build(store: store_mod.Store, account_id: str) -> dict:
     group_id = account["group_id"]
     if group_id:
         members = store.group_members(group_id)
-        name = next((n for n in counts["by_group"] if store.group_id_for(n) == group_id), None)
+        info = store.group(group_id) or {"name": None, "pending": False}
         others = [{"id": m["id"], "excerpt": m["excerpt"]} for m in members if m["id"] != account_id]
         said = sum(1 for m in members if _often_score(m) == 2)
-        group = {"name": name, "count": len(members), "others": others}
+        group = {"name": PENDING_GROUP_NAME if info["pending"] else info["name"], "pending": info["pending"],
+                 "count": len(members), "others": others}
         coverage = {"said": said, "of": len(members)}
     else:
-        group = {"name": None, "count": 1, "others": []}
+        group = {"name": None, "pending": False, "count": 1, "others": []}
         coverage = {"said": 1 if _often_score(account) == 2 else 0, "of": 1}
     differing = [d for d in store.differing(account["consultation_id"], group_id or _NO_GROUP)
                  if d["id"] != account_id]
     return {
         "provisional": True,
         "theme": account["theme"],
+        "needs_review": account["needs_review"] or account["theme"] == "needs_review",
         "group": group,
         "contributors": counts["contributors"],
         "seeds": counts["seeds"],
