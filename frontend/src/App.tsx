@@ -7,7 +7,7 @@ import { NoticeStrip } from './components/NoticeStrip.tsx';
 import { OverallQuestion } from './components/OverallQuestion.tsx';
 import { Receipt } from './components/Receipt.tsx';
 import { SummaryCard } from './components/SummaryCard.tsx';
-import { isEditableTarget, SystemView } from './components/SystemView.tsx';
+import { isEditableTarget, isToggleKey, SystemView } from './components/SystemView.tsx';
 import { useMinWidth } from './useMinWidth.ts';
 import { useSession } from './useSession.ts';
 
@@ -41,7 +41,7 @@ export function App() {
   useEffect(() => {
     if (!laptop) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 's' || e.ctrlKey || e.metaKey || e.altKey || e.repeat || isEditableTarget(e.target as HTMLElement | null)) return;
+      if (!isToggleKey(e) || isEditableTarget(e.target as HTMLElement | null)) return;
       setSystemOpen((open) => !open);
     };
     window.addEventListener('keydown', onKey);
@@ -123,9 +123,10 @@ export function App() {
           </main>
         </div>
       </div>
-      {panelOpen && (
-        <div className="layout__panel">
-          <SystemView state={state.serverState} previous={state.previousServerState} open counter={state.counter} aggregate={state.aggregate} />
+      {laptop && (
+        // The slot is always reserved at laptop width, so the phone column does not move when the panel opens.
+        <div className={panelOpen ? 'layout__panel layout__panel--open' : 'layout__panel'} aria-hidden={panelOpen ? undefined : true}>
+          <SystemView state={state.serverState} previous={state.previousServerState} open={panelOpen} counter={state.counter} aggregate={state.aggregate} />
         </div>
       )}
     </div>

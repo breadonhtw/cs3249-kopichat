@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diffCells, isEditableTarget, nextLine, storedLine } from '../src/components/SystemView.tsx';
+import { diffCells, isEditableTarget, isToggleKey, nextLine, storedLine } from '../src/components/SystemView.tsx';
 
 test('changed cells are named', () => {
   const prev = { dims: { q1_what: { score: 1, state: 'provided', checks: { place: null } } } } as any;
@@ -41,4 +41,14 @@ test('the s key is ignored while focus is in a text control', () => {
   assert.equal(isEditableTarget({ tagName: 'DIV', isContentEditable: true } as any), true);
   assert.equal(isEditableTarget({ tagName: 'BUTTON' } as any), false);
   assert.equal(isEditableTarget(null), false);
+});
+
+test('the toggle key is a plain s in either case, not held, not part of a shortcut', () => {
+  assert.equal(isToggleKey({ key: 's' }), true);
+  assert.equal(isToggleKey({ key: 'S' }), true);
+  assert.equal(isToggleKey({ key: 'a' }), false);
+  assert.equal(isToggleKey({ key: 's', ctrlKey: true }), false);
+  assert.equal(isToggleKey({ key: 's', metaKey: true }), false);
+  assert.equal(isToggleKey({ key: 's', altKey: true }), false);
+  assert.equal(isToggleKey({ key: 's', repeat: true }), false);
 });

@@ -46,6 +46,11 @@ export function isEditableTarget(el: { tagName?: string; isContentEditable?: boo
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true;
 }
 
+/** True for a plain press of `s` (any case, so Caps Lock is fine) that is not a held key and not part of a shortcut. */
+export function isToggleKey(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; repeat?: boolean }): boolean {
+  return e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
+}
+
 const stateWord = (state: DimState['state']) => String(state).replaceAll('_', ' ');
 
 type Props = {

@@ -177,5 +177,6 @@
   .phone { flex: 1; min-width: 0; }
   .phone__bar { display: flex; justify-content: flex-end; align-items: center; height: 44px; max-width: 390px; margin-inline: auto; padding: 0 var(--space-md); }
   .phone .shell { min-height: calc(100dvh - 44px); }
-  .layout__panel { flex: none; width: 420px; position: sticky; top: 0; height: 100dvh; overflow-y: auto; background: var(--color-paper); border-left: var(--rule-hair) solid var(--color-rule); }
+  .layout__panel { flex: none; width: 420px; position: sticky; top: 0; height: 100dvh; overflow-y: auto; }
+  .layout__panel--open { background: var(--color-paper); border-left: var(--rule-hair) solid var(--color-rule); }
 }
