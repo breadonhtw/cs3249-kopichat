@@ -13,8 +13,9 @@ _ENDED = ("explicit_none", "not_applicable")
 
 
 def new_state(consultation_id: str) -> dict:
-    """Fresh conversation state. The consultation id is carried by the session, not stored here."""
+    """Fresh conversation state for one consultation."""
     return {
+        "consultation_id": consultation_id,
         "dims": schema.new_dims(),
         "overall": None,
         "phase": "consent",
