@@ -71,11 +71,13 @@ Start from a fresh seed state: use "Restart demo" in the demo bar (laptop width,
 
 ## Before the demo
 
-Three pieces of copy are placeholders and must be replaced with real values:
+Three pieces of copy are set for the demo consultation and should be confirmed by the group before any real use:
 
-- `closing_date` in `CONSULTATION` in `backend/content.py`, currently the literal text `[closing date]`.
-- The `[care line]` text inside `CRISIS_MESSAGE` in `backend/content.py`, which is shown if a student discloses distress. Put in a real support contact.
-- The `[contact]` text in `frontend/src/components/OverflowMenu.tsx`, shown under "Talk to a person". Put in the NUSSU consultation team's real contact.
+- `closing_date` in `CONSULTATION` in `backend/content.py`, currently "12 November 2026".
+- The care line inside `CRISIS_MESSAGE` in `backend/content.py`, shown if a student discloses distress: currently Lifeline NUS (+65 65167777).
+- The contact under "Talk to a person" in `frontend/src/components/OverflowMenu.tsx`: currently the University Counselling team at 65167777.
+
+`tests/test_content.py` pins the first two strings, so changing them means updating that test.
 
 ## Tests
 

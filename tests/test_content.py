@@ -94,7 +94,7 @@ def test_consultation_shape():
     assert c.CONSULTATION["id"] == "campus-visitors-2026"
     assert c.CONSULTATION["title"] == "Campus visitors and student experience"
     assert c.CONSULTATION["why"] == "To understand how visitor presence on campus is affecting students' day-to-day experience."
-    assert c.CONSULTATION["closing_date"] == "[closing date]"
+    assert c.CONSULTATION["closing_date"] == "12 November 2026"
     assert c.CONSULTATION["overall_options"] == ["Positively", "No noticeable effect", "Negatively", "Mixed", "Not sure"]
 
 
@@ -122,7 +122,7 @@ def test_product_name_drives_out_of_scope_copy():
 
 def test_no_nusid_in_copy():
     assert not any("NUSID" in t for t in _module_strings())
-    assert c.CRISIS_MESSAGE == "Thank you for telling me. If you are in distress, please contact [care line] now. The questions are paused; nothing has been sent."
+    assert c.CRISIS_MESSAGE == "Thank you for telling me. If you are in distress, please contact Lifeline NUS (+65 65167777) now. The questions are paused; nothing has been sent."
     assert c.UNAVAILABLE_MESSAGE == "The assistant is unavailable right now. Your replies are kept. Send your message again in a moment."
     assert c.NO_LLM_MESSAGE == "This app needs an LLM to run. Add an API key in .env, then restart the server."
     assert c.SUFFICIENT_MESSAGE == "That's enough for the account. Check the summary before anything is sent."

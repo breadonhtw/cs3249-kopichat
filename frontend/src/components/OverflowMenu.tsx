@@ -33,7 +33,7 @@ export function OverflowMenu({ busy, onAnonymous, onStop }: Props) {
         <button type="button" className="overflow__item" disabled={busy} onClick={() => choose(onStop)}>
           Stop and delete
         </button>
-        {person && <p className="note overflow__note">For a person, contact the NUSSU consultation team at [contact].</p>}
+        {person && <p className="note overflow__note">For a person, contact the University Counselling team at 65167777.</p>}
       </div>
     </details>
   );
