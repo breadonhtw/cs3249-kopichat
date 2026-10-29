@@ -88,6 +88,40 @@ def test_anthropic_call_sends_no_temperature(monkeypatch):
     assert "temperature" not in sent
 
 
+class _BadRequest(Exception):
+    status_code = 400
+
+
+def _fake_anthropic(monkeypatch, refuse_disabled):
+    calls = []
+
+    class Messages:
+        def create(self, **kwargs):
+            calls.append(kwargs.get("thinking"))
+            if refuse_disabled and kwargs.get("thinking") == {"type": "disabled"}:
+                raise _BadRequest('"thinking.type.disabled" is not supported for this model.')
+            return type("Resp", (), {"content": [type("Block", (), {"type": "text", "text": "{}"})()]})()
+
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setattr(llm, "_clients", {"anthropic": type("Client", (), {"messages": Messages()})()})
+    monkeypatch.setattr(llm, "_THINKING_OFF", {})
+    return calls
+
+
+def test_anthropic_call_turns_thinking_off(monkeypatch):
+    # A model that thinks by default spends max_tokens on thinking and returns no text.
+    calls = _fake_anthropic(monkeypatch, refuse_disabled=False)
+    llm.chat("system", [{"role": "user", "content": "hi"}])
+    assert calls == [{"type": "disabled"}]
+
+
+def test_anthropic_falls_back_to_between_tools_and_remembers(monkeypatch):
+    calls = _fake_anthropic(monkeypatch, refuse_disabled=True)
+    assert llm.chat("system", [{"role": "user", "content": "hi"}]) == "{}"
+    assert llm.chat("system", [{"role": "user", "content": "hi"}]) == "{}"
+    assert calls == [{"type": "disabled"}, {"type": "between_tools"}, {"type": "between_tools"}]
+
+
 def test_env_example_matches_the_code():
     text = open(os.path.join(os.path.dirname(llm.__file__), "..", ".env.example")).read()
     assert "ANTHROPIC_API_KEY=" in text and "LLM_PROVIDER=\n" in text and "LLM_MODEL=\n" in text

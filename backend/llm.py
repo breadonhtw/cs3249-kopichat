@@ -92,6 +92,27 @@ def _client(name):
     return _clients[name]
 
 
+_THINKING_OFF = {}  # model name -> the thinking type that turns thinking off on that model
+
+
+def _anthropic_create(**kwargs):
+    """Call Messages with thinking off, so a model that thinks by default does not spend max_tokens on it.
+
+    Haiku takes {"type": "disabled"}; Sonnet and Opus 5 refuse that and take {"type": "between_tools"}.
+    No temperature: anthropic>=2 rejects it.
+    """
+    off = _THINKING_OFF.get(kwargs["model"], "disabled")
+    try:
+        resp = _client("anthropic").messages.create(thinking={"type": off}, **kwargs)
+    except Exception as e:
+        if off != "disabled" or getattr(e, "status_code", None) != 400 or "thinking" not in str(e):
+            raise
+        off = "between_tools"
+        resp = _client("anthropic").messages.create(thinking={"type": off}, **kwargs)
+    _THINKING_OFF[kwargs["model"]] = off
+    return resp
+
+
 def chat(system, messages, max_tokens=500, json_mode=False):
     """Send a system prompt plus a list of {"role", "content"} turns; return the reply text.
 
@@ -102,9 +123,7 @@ def chat(system, messages, max_tokens=500, json_mode=False):
         raise LLMError("No LLM configured")
     try:
         if name == "anthropic":
-            resp = _client(name).messages.create(
-                model=model(), max_tokens=max_tokens, system=system, messages=messages,
-            )  # no temperature: anthropic>=2 rejects it
+            resp = _anthropic_create(model=model(), max_tokens=max_tokens, system=system, messages=messages)
             return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         # openai (or OpenAI-compatible)
         kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
