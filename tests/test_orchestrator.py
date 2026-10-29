@@ -232,3 +232,28 @@ def test_logbook_keeps_session_id_inside_the_log_dir(monkeypatch, tmp_path):
     logbook.append("../evil", {"a": 1})
     assert [f.name for f in (tmp_path / "logs").iterdir()] == ["___evil.jsonl"]
     assert not (tmp_path / "evil.jsonl").exists()
+
+
+def test_finish_after_a_continue_turn_goes_to_summary(fake):
+    fake(EXTRACTIONS[0])
+    st = p.new_state("c"); run(st, action="start_chat"); run(st, STUDENT[0])
+    used = st["follow_ups_used"]
+    r = run(st, action="finish")
+    assert r["phase"] == "summary" and r["reply"] == c.SUFFICIENT_MESSAGE and r["chips"] == []
+    assert st["pending_question"] is None and st["last_options"] == []
+    assert st["follow_ups_used"] == used and r["counter"] == f"Follow-ups used {used} of up to 5"
+
+
+def test_finish_before_any_answer_is_a_noop(fake):
+    fake()
+    st = p.new_state("c"); run(st, action="start_chat")
+    r = run(st, action="finish")
+    assert st["phase"] == "chat" and r["reply"] == c.OPENING and st["pending_question"] == c.OPENING
+    assert st["follow_ups_used"] == 0 and r["phase"] == "chat"
+
+
+def test_finish_outside_chat_phase_is_a_noop(fake):
+    fake()
+    st = p.new_state("c"); st["transcript"].append("something")
+    r = run(st, action="finish")
+    assert st["phase"] == "consent" and r["reply"] == ""

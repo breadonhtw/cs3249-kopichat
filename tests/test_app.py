@@ -58,7 +58,7 @@ def test_journey_round_trip(client, monkeypatch):
     assert any(r["key"] == "what" and "first A2" in r["text"] for r in rows)
     e = client.patch("/api/summary/t", json={"key": "often", "text": "3 times in the last 2 weeks"}).json()
     assert next(r for r in e["rows"] if r["key"] == "often")["status"] == "edited"
-    _to_summary()
+    assert client.post("/api/turn", json={"session_id": "t", "action": "finish"}).json()["phase"] == "summary"
     s = client.post("/api/submit", json={"session_id": "t", "approved": True}).json()
     assert s["account"]["ref_code"].startswith("KR-") and s["aggregate"]["contributors"] == 7 and s["aggregate"]["group"]["count"] == 3
     s2 = client.post("/api/submit", json={"session_id": "t", "approved": True}).json()
@@ -272,3 +272,23 @@ def test_turn_refuses_start_chat_action(client):
     assert r.status_code == 409
     from backend import app as a
     assert a.SESSIONS["t"]["state"]["phase"] == "consent"
+
+
+def test_finish_via_turn_then_submit_succeeds(client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **k: EXTRACTIONS[0])
+    _to_chat(client)
+    client.post("/api/turn", json={"session_id": "t", "message": "The buses are always packed, damn frustrating. I was late again."})
+    assert client.post("/api/submit", json={"session_id": "t", "approved": True}).status_code == 409
+    r = client.post("/api/turn", json={"session_id": "t", "action": "finish"}).json()
+    assert r["phase"] == "summary"
+    assert client.post("/api/submit", json={"session_id": "t", "approved": True}).status_code == 200
+
+
+def test_check_my_summary_chip_maps_to_finish(client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **k: EXTRACTIONS[0])
+    _to_chat(client)
+    client.post("/api/turn", json={"session_id": "t", "message": "The buses are always packed, damn frustrating. I was late again."})
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **k: pytest.fail("LLM must not be called for a chip"))
+    assert client.post("/api/turn", json={"session_id": "t", "message": "Check my summary"}).json()["phase"] == "summary"

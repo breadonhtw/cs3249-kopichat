@@ -105,6 +105,10 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
         res = _result(state, content.OPENING)
         _log(session_id, state, message, action, None, res["reply"])
         return res
+    if action == "finish":
+        res = _finish(state)
+        _log(session_id, state, message, action, None, res["reply"])
+        return res
     if action in ("why", "anonymous", "stop", "skip"):
         res = _action_reply(state, action)
         _log(session_id, state, message, action, None, res["reply"])
@@ -140,6 +144,16 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
     res = _route(state, ex, message)
     _log(session_id, state, message, action, ex, res["reply"], raw=raw)
     return res
+
+
+def _finish(state: dict) -> dict:
+    """The student is done answering: go to the summary. Not a follow-up, no LLM."""
+    if state["phase"] != "chat" or not state["transcript"]:
+        return _result(state, state["pending_question"] or "")
+    state["phase"] = "summary"
+    state["pending_question"] = None
+    state["last_options"] = []
+    return _result(state, content.SUFFICIENT_MESSAGE, chips=[])
 
 
 def _chosen_option(state: dict, action: str) -> str | None:

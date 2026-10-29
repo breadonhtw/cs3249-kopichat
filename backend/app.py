@@ -36,6 +36,7 @@ CHIP_ACTIONS = {
     "Stop and delete": "stop",
     "Stop": "stop",
     "Delete": "delete",
+    "Check my summary": "finish",
 }
 # Chips that only dismiss a prompt: the pending question comes back, nothing is extracted.
 NOOP_CHIPS = {"Keep draft", "Continue without the name", "Continue with my general experience",
