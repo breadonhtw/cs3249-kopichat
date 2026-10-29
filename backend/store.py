@@ -176,6 +176,13 @@ class Store:
 
     # --- reads (withdrawn accounts never appear) ---------------------------
 
+    def get(self, account_id: str) -> dict:
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
+        if not row:
+            raise KeyError(account_id)
+        return self._account(row)
+
     def group_id_for(self, name: str) -> str | None:
         with self._conn() as c:
             row = c.execute("SELECT id FROM groups WHERE name = ?", (name,)).fetchone()
