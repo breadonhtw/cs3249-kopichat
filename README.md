@@ -19,7 +19,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Open `.env` and paste your SoCLaaS key after `OPENAI_API_KEY=` and set `LLM_MODEL=default`, or paste an Anthropic key after `ANTHROPIC_API_KEY=` and leave `LLM_MODEL` empty. With `LLM_PROVIDER` empty the app uses whichever key is set (Anthropic first). Keys go in `.env` only, never in `backend/llm.py`. Then, still from the repository root, install the frontend:
+Open `.env` and paste your SoCLaaS key after `OPENAI_API_KEY=` and set `LLM_MODEL=default`, or paste an Anthropic key after `ANTHROPIC_API_KEY=` and leave `LLM_MODEL` empty. For a personal OpenAI key, also set `OPENAI_BASE_URL=https://api.openai.com/v1` and set `LLM_MODEL` to one of your account's models. With `LLM_PROVIDER` empty the app uses whichever key is set (Anthropic first). Keys go in `.env` only, never in `backend/llm.py`. Then, still from the repository root, install the frontend:
 
 ```
 npm --prefix frontend run setup

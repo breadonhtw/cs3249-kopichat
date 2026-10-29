@@ -59,6 +59,35 @@ def test_provider_is_auto_detected_from_an_openai_key(monkeypatch):
     assert llm.provider() == "openai" and llm.enabled() is True
 
 
+def test_base_url_in_env_wins_over_the_soclaas_default(monkeypatch):
+    monkeypatch.setattr(llm, "_clients", {})
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    assert str(llm._client("openai").base_url).startswith("https://api.openai.com/v1")
+
+
+def test_base_url_falls_back_to_soclaas(monkeypatch):
+    monkeypatch.setattr(llm, "_clients", {})
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    assert str(llm._client("openai").base_url).startswith("https://soclaas-api.comp.nus.edu.sg/v1")
+
+
+def test_anthropic_call_sends_no_temperature(monkeypatch):
+    # anthropic>=2 rejects temperature as an unknown argument.
+    sent = {}
+
+    class Messages:
+        def create(self, **kwargs):
+            sent.update(kwargs)
+            return type("Resp", (), {"content": [type("Block", (), {"type": "text", "text": "{}"})()]})()
+
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setattr(llm, "_clients", {"anthropic": type("Client", (), {"messages": Messages()})()})
+    assert llm.chat("system", [{"role": "user", "content": "hi"}]) == "{}"
+    assert "temperature" not in sent
+
+
 def test_env_example_matches_the_code():
     text = open(os.path.join(os.path.dirname(llm.__file__), "..", ".env.example")).read()
     assert "ANTHROPIC_API_KEY=" in text and "LLM_PROVIDER=\n" in text and "LLM_MODEL=\n" in text

@@ -20,7 +20,7 @@ except ImportError:
 LLM_PROVIDER = ""           # "" = whichever key is set (Anthropic first); LLM_PROVIDER in .env overrides
 ANTHROPIC_API_KEY = ""      # read from ANTHROPIC_API_KEY in .env
 OPENAI_API_KEY = ""         # read from OPENAI_API_KEY in .env
-OPENAI_BASE_URL = "https://soclaas-api.comp.nus.edu.sg/v1"
+OPENAI_BASE_URL = "https://soclaas-api.comp.nus.edu.sg/v1"  # OPENAI_BASE_URL in .env overrides
 LLM_MODEL = ""              # "" = the provider's default below; LLM_MODEL in .env overrides
 
 DEFAULT_MODELS = {
@@ -84,7 +84,7 @@ def _client(name):
             import openai
             _clients[name] = openai.OpenAI(
                 api_key=OPENAI_API_KEY or os.environ.get("OPENAI_API_KEY"),
-                base_url=OPENAI_BASE_URL or os.environ.get("OPENAI_BASE_URL") or None,
+                base_url=os.environ.get("OPENAI_BASE_URL") or OPENAI_BASE_URL or None,
                 timeout=TIMEOUT_SECONDS, max_retries=1,
             )
         else:
@@ -104,8 +104,7 @@ def chat(system, messages, max_tokens=500, json_mode=False):
         if name == "anthropic":
             resp = _client(name).messages.create(
                 model=model(), max_tokens=max_tokens, system=system, messages=messages,
-                temperature=0,
-            )
+            )  # no temperature: anthropic>=2 rejects it
             return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         # openai (or OpenAI-compatible)
         kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
