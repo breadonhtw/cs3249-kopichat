@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiError, chipAction } from './api/client.ts';
+import { DEFAULT_CHIPS } from './chips.ts';
 import type { Aggregate, Consultation, Phase, ServerState, SummaryRow, TurnResult, createClient } from './api/client.ts';
 
 export type Client = ReturnType<typeof createClient>;
+
+/** The server's reply when the model cannot be reached (backend/content.py UNAVAILABLE_MESSAGE). */
+export const UNAVAILABLE_TEXT = 'The assistant is unavailable right now. Your replies are kept. Send your message again in a moment.';
+
+// Chips with no request behind them: they only put the pending question and the default chips back.
+const RESTORE_LABELS = new Set(['Keep draft', 'Continue without the name', 'Continue with my general experience', 'None of these']);
 
 export type ThreadItem = { role: 'agent' | 'student' | 'status'; text: string };
 
@@ -20,6 +27,8 @@ export type SessionState = {
   aggregate: Aggregate | null;
   busy: boolean;
   error: string | null;
+  /** Unavailable replies in a row; two bring up the written fallback. */
+  unavailableStreak: number;
 };
 
 export type SessionEvent =
@@ -29,6 +38,8 @@ export type SessionEvent =
   | { type: 'student'; text: string }
   | { type: 'turn'; result: TurnResult }
   | { type: 'busy'; value: boolean }
+  | { type: 'unavailable' }
+  | { type: 'restore' }
   | { type: 'summary'; rows: SummaryRow[] }
   | { type: 'submitted'; account: { id: string; ref_code: string }; aggregate: Aggregate }
   | { type: 'error'; message: string };
@@ -47,6 +58,7 @@ export const initialSession: SessionState = {
   aggregate: null,
   busy: false,
   error: null,
+  unavailableStreak: 0,
 };
 
 export function sessionReducer(state: SessionState, event: SessionEvent): SessionState {
@@ -64,10 +76,12 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
       return { ...state, overall: event.value };
     case 'student':
       return { ...state, thread: [...state.thread, { role: 'student', text: event.text }], chips: [], options: [] };
-    case 'turn':
+    case 'turn': {
+      const unavailable = event.result.reply === UNAVAILABLE_TEXT;
       return {
         ...state,
-        phase: event.result.phase,
+        phase: unavailable ? 'unavailable' : event.result.phase,
+        unavailableStreak: unavailable ? state.unavailableStreak + 1 : 0,
         thread: [...state.thread, { role: 'agent', text: event.result.reply }],
         chips: event.result.chips,
         options: event.result.options,
@@ -75,6 +89,26 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
         serverState: event.result.state,
         error: null,
       };
+    }
+    case 'unavailable':
+      return {
+        ...state,
+        phase: 'unavailable',
+        unavailableStreak: state.unavailableStreak + 1,
+        thread: [...state.thread, { role: 'agent', text: UNAVAILABLE_TEXT }],
+        chips: DEFAULT_CHIPS,
+        options: [],
+        error: null,
+      };
+    case 'restore': {
+      const pending = state.serverState?.pending_question;
+      return {
+        ...state,
+        thread: typeof pending === 'string' && pending !== '' ? [...state.thread, { role: 'agent', text: pending }] : state.thread,
+        chips: DEFAULT_CHIPS,
+        options: [],
+      };
+    }
     case 'busy':
       return { ...state, busy: event.value, error: event.value ? null : state.error };
     case 'summary':
@@ -110,7 +144,7 @@ export function useSession(client: Client) {
   // `force` skips the re-entry guard; only the mount load uses it, because StrictMode re-runs the effect.
   const run = useCallback(
     async (fn: (emit: Emit) => Promise<void>, ignore: () => boolean = () => !alive.current, force = false) => {
-      if (!force && (inFlight.current || stateRef.current.busy)) return;
+      if (!force && inFlight.current) return;
       const emit: Emit = (event) => { if (!ignore()) dispatch(event); };
       inFlight.current = true;
       emit({ type: 'busy', value: true });
@@ -143,7 +177,12 @@ export function useSession(client: Client) {
 
   const turn = useCallback(
     (message?: string, action?: string) => run(async (emit) => {
-      emit({ type: 'turn', result: await client.turn(message, action) });
+      try {
+        emit({ type: 'turn', result: await client.turn(message, action) });
+      } catch {
+        // A turn that cannot be delivered reads the same as the server's unavailable reply.
+        emit({ type: 'unavailable' });
+      }
     }),
     [client, run],
   );
@@ -160,14 +199,18 @@ export function useSession(client: Client) {
       emit({ type: 'overall', value });
       emit({ type: 'turn', result });
     }),
-    send: (text: string) => {
-      if (inFlight.current) return Promise.resolve();
+    /** True when the message was sent; false when refused (a request is already in flight), so the composer keeps its text. */
+    send: (text: string): boolean => {
+      if (inFlight.current || text.trim() === '') return false;
       dispatch({ type: 'student', text });
-      return turn(text);
+      void turn(text);
+      return true;
     },
     chip: (label: string) => {
       const action = chipAction(label);
-      return action === null ? Promise.resolve() : turn(undefined, action);
+      if (action !== null) return turn(undefined, action);
+      if (RESTORE_LABELS.has(label) && !inFlight.current) dispatch({ type: 'restore' });
+      return Promise.resolve();
     },
     option: (i: number) => {
       const text = stateRef.current.options[i];
@@ -175,6 +218,25 @@ export function useSession(client: Client) {
       dispatch({ type: 'student', text });
       return turn(text);
     },
+    /** The written fallback: each answer is a turn in order, then the summary. Stops at the first answer the server could not take. */
+    submitFallback: (answers: string[]) => run(async (emit) => {
+      for (const text of answers) {
+        emit({ type: 'student', text });
+        try {
+          const result = await client.turn(text);
+          emit({ type: 'turn', result });
+          if (result.reply === UNAVAILABLE_TEXT) return;
+        } catch {
+          emit({ type: 'unavailable' });
+          return;
+        }
+      }
+      try {
+        emit({ type: 'turn', result: await client.turn(undefined, 'finish') });
+      } catch {
+        emit({ type: 'unavailable' });
+      }
+    }),
     skip: () => turn(undefined, 'skip'),
     why: () => turn(undefined, 'why'),
     stop: () => turn(undefined, 'stop'),

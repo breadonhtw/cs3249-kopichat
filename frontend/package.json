@@ -13,10 +13,9 @@
     "start": "node scripts/start.mjs",
     "doctor": "node scripts/doctor.mjs",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test tests/client.test.ts tests/useSession.test.ts tests/consentCard.test.ts scripts/tests/local-scripts.test.mjs scripts/tests/locator-paths.test.mjs"
+    "test": "tsx --test tests/client.test.ts tests/useSession.test.ts tests/consentCard.test.ts tests/thread.test.ts scripts/tests/local-scripts.test.mjs scripts/tests/locator-paths.test.mjs"
   },
   "dependencies": {
-    "@assistant-ui/react": "0.14.26",
     "lucide-react": "1.45.0",
     "radix-ui": "1.6.7",
     "react": "19.3.0",

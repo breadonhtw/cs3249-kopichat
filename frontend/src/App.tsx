@@ -1,4 +1,5 @@
 import { client } from './api/clientInstance.ts';
+import { ChatScreen } from './components/ChatScreen.tsx';
 import { ConsentCard } from './components/ConsentCard.tsx';
 import { NoticeStrip } from './components/NoticeStrip.tsx';
 import { OverallQuestion } from './components/OverallQuestion.tsx';
@@ -9,13 +10,15 @@ export function App() {
   const { state } = session;
   const { consultation } = state;
   const onOverall = consultation !== null && state.phase === 'overall';
+  const onChat = consultation !== null && (state.phase === 'chat' || state.phase === 'unavailable');
+  const stepped = onOverall || onChat;
 
   return (
     <div className="shell">
       <NoticeStrip
-        line1={onOverall ? consultation.title : 'Kopichat'}
-        line2={onOverall ? 'Step 1 of 3' : 'NUSSU consultation'}
-        step={onOverall ? 1 : undefined}
+        line1={stepped ? consultation.title : 'Kopichat'}
+        line2={onOverall ? 'Step 1 of 3' : onChat ? 'Step 2 of 3' : 'NUSSU consultation'}
+        step={onOverall ? 1 : onChat ? 2 : undefined}
         fictional
       />
       {state.error && (
@@ -35,6 +38,8 @@ export function App() {
           <ConsentCard consultation={consultation} busy={state.busy} onAgree={session.consent} />
         ) : state.phase === 'overall' ? (
           <OverallQuestion consultation={consultation} busy={state.busy} onAnswer={session.overall} />
+        ) : onChat ? (
+          <ChatScreen session={session} />
         ) : (
           <p className="body">Phase: {state.phase}</p>
         )}
