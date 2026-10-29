@@ -1,4 +1,5 @@
 import { client } from './api/clientInstance.ts';
+import { closedLine } from './closedLine.ts';
 import { ChatScreen } from './components/ChatScreen.tsx';
 import { ConsentCard } from './components/ConsentCard.tsx';
 import { NoticeStrip } from './components/NoticeStrip.tsx';
@@ -40,6 +41,8 @@ export function App() {
           <OverallQuestion consultation={consultation} busy={state.busy} onAnswer={session.overall} />
         ) : onChat ? (
           <ChatScreen session={session} />
+        ) : state.phase === 'done' ? (
+          <p className="body">{closedLine(consultation.closing_date)}</p>
         ) : (
           <p className="body">Phase: {state.phase}</p>
         )}

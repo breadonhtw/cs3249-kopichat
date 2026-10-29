@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderItemClass } from '../src/components/Thread.tsx';
 import { chipRow, DEFAULT_CHIPS } from '../src/chips.ts';
-import { initialSession, sessionReducer, UNAVAILABLE_TEXT } from '../src/useSession.ts';
+import { initialSession, isCrisis, sessionReducer, UNAVAILABLE_TEXT } from '../src/useSession.ts';
+import { closedLine } from '../src/closedLine.ts';
 import type { TurnResult } from '../src/api/client.ts';
 
 test('agent turns are not bubbles', () => {
@@ -62,4 +63,51 @@ test('restore puts the pending question and the default chips back', () => {
 test('loading a session clears an earlier error', () => {
   const s = sessionReducer({ ...initialSession, error: 'x' }, { type: 'loaded', consultation: {} as any });
   assert.equal(s.error, null);
+});
+
+test('loading a chat-phase session rebuilds the thread and the overall view', () => {
+  const s = sessionReducer(initialSession, {
+    type: 'loaded',
+    consultation: {} as any,
+    serverState: { phase: 'chat', overall: 'Negatively', transcript: ['It was loud', 'Most nights'], pending_question: 'How did it affect you?' },
+  });
+  assert.equal(s.overall, 'Negatively');
+  assert.deepEqual(s.thread, [
+    { role: 'student', text: 'It was loud' },
+    { role: 'student', text: 'Most nights' },
+    { role: 'agent', text: 'How did it affect you?' },
+  ]);
+  assert.deepEqual(s.chips, DEFAULT_CHIPS);
+  assert.equal(s.counter, '');
+});
+
+test('loading keeps a skipped overall view as null and a server counter when present', () => {
+  const s = sessionReducer(initialSession, {
+    type: 'loaded',
+    consultation: {} as any,
+    serverState: { phase: 'chat', overall: null, transcript: [], pending_question: 'Q?', counter: 'Follow-up 1 of up to 5' },
+  });
+  assert.equal(s.overall, null);
+  assert.equal(s.counter, 'Follow-up 1 of up to 5');
+  assert.deepEqual(s.thread, [{ role: 'agent', text: 'Q?' }]);
+});
+
+test('loading outside the chat phase builds no thread', () => {
+  const s = sessionReducer(initialSession, { type: 'loaded', consultation: {} as any, serverState: { phase: 'overall' } });
+  assert.deepEqual(s.thread, []);
+  assert.equal(s.overall, null);
+});
+
+test('a crisis state is recognised and phase done is reachable', () => {
+  assert.equal(isCrisis({ phase: 'chat', stopped: 'crisis' }), true);
+  assert.equal(isCrisis({ phase: 'chat', stopped: null }), false);
+  assert.equal(isCrisis(null), false);
+  const s = sessionReducer({ ...initialSession, phase: 'chat' }, { type: 'phase', phase: 'done' });
+  assert.equal(s.phase, 'done');
+});
+
+test('the closed line leaves out the withdraw clause for a placeholder date', () => {
+  assert.equal(closedLine('[closing date]'), 'This consultation link has been used.');
+  assert.equal(closedLine(''), 'This consultation link has been used.');
+  assert.equal(closedLine('14 November'), 'This consultation link has been used. Withdraw before 14 November.');
 });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { isDeletePrompt } from '../chips.ts';
-import type { useSession } from '../useSession.ts';
+import { isCrisis, type useSession } from '../useSession.ts';
 import { ChipRow } from './ChipRow.tsx';
 import { Composer } from './Composer.tsx';
 import { FallbackForm } from './FallbackForm.tsx';
@@ -24,6 +24,7 @@ export function ChatScreen({ session }: Props) {
   const answered = Array.isArray(transcript) ? transcript.length : 0;
   const lastAgent = [...state.thread].reverse().find((item) => item.role === 'agent');
   const fallback = state.unavailableStreak >= 2 && state.unavailableStreak > closedAt;
+  const crisis = isCrisis(state.serverState);
   const confirming = !fallback && isDeletePrompt(state.chips);
 
   function onChip(label: string) {
@@ -34,7 +35,16 @@ export function ChatScreen({ session }: Props) {
   return (
     <div className="chat">
       <Thread items={state.thread} overall={state.overall} counter={state.counter} busy={state.busy} />
-      {fallback ? (
+      {crisis ? (
+        <div className="dock">
+          <InlineConfirm
+            sentence="The questions are paused. Nothing has been sent."
+            busy={state.busy}
+            secondary={{ label: 'Delete what I typed', onClick: () => void session.del() }}
+            primary={{ label: 'Close', onClick: session.close }}
+          />
+        </div>
+      ) : fallback ? (
         <FallbackForm
           busy={state.busy}
           onCancel={() => setClosedAt(state.unavailableStreak)}

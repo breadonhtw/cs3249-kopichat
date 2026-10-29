@@ -11,6 +11,11 @@ export const UNAVAILABLE_TEXT = 'The assistant is unavailable right now. Your re
 // Chips with no request behind them: they only put the pending question and the default chips back.
 const RESTORE_LABELS = new Set(['Keep draft', 'Continue without the name', 'Continue with my general experience', 'None of these']);
 
+/** True once the server has paused the questions after a crisis disclosure. */
+export function isCrisis(server: ServerState | null | undefined): boolean {
+  return server?.stopped === 'crisis';
+}
+
 export type ThreadItem = { role: 'agent' | 'student' | 'status'; text: string };
 
 export type SessionState = {
@@ -63,13 +68,30 @@ export const initialSession: SessionState = {
 
 export function sessionReducer(state: SessionState, event: SessionEvent): SessionState {
   switch (event.type) {
-    case 'loaded':
+    case 'loaded': {
+      const server = event.serverState ?? null;
+      const phase = event.phase ?? server?.phase ?? 'consent';
+      const overall = typeof server?.overall === 'string' ? server.overall : null;
+      // A reload mid-chat: the student's answers and the question still waiting are rebuilt from the server.
+      const resumed = phase === 'chat' && server !== null;
+      const pending = typeof server?.pending_question === 'string' && server.pending_question !== '' ? server.pending_question : null;
+      const thread: ThreadItem[] = [];
+      if (resumed) {
+        const transcript = Array.isArray(server.transcript) ? server.transcript : [];
+        for (const text of transcript) if (typeof text === 'string') thread.push({ role: 'student', text });
+        if (pending !== null) thread.push({ role: 'agent', text: pending });
+      }
       return {
         ...initialSession,
         consultation: event.consultation,
-        phase: event.phase ?? event.serverState?.phase ?? 'consent',
-        serverState: event.serverState ?? null,
+        phase,
+        overall,
+        thread,
+        chips: resumed && pending !== null ? DEFAULT_CHIPS : [],
+        counter: typeof server?.counter === 'string' ? server.counter : '',
+        serverState: server,
       };
+    }
     case 'phase':
       return { ...state, phase: event.phase, error: null };
     case 'overall':
@@ -237,6 +259,8 @@ export function useSession(client: Client) {
         emit({ type: 'unavailable' });
       }
     }),
+    /** The student closes the consultation without deleting; nothing else is sent. */
+    close: () => dispatch({ type: 'phase', phase: 'done' }),
     skip: () => turn(undefined, 'skip'),
     why: () => turn(undefined, 'why'),
     stop: () => turn(undefined, 'stop'),
