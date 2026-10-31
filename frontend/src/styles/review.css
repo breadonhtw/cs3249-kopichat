@@ -37,3 +37,7 @@
 .said__quote { color: var(--color-ink); overflow-wrap: anywhere; }
 .said__quote--none { font-size: var(--text-sm); color: var(--color-muted); }
 .said__note { display: block; font-size: var(--text-xs); color: var(--color-muted); }
+/* The account the demo jumped from: teal, the colour that means received. */
+.strip__new { align-self: flex-start; padding: var(--space-3xs) var(--space-xs); border-radius: var(--radius-pill); background: var(--color-accent-soft); color: var(--color-accent-soft-ink); font-size: var(--text-sm); }
+.said__line--new { margin-inline: calc(-1 * var(--space-xs)); padding: var(--space-2xs) var(--space-xs); border-radius: 8px; background: var(--color-accent-soft); }
+.said__line--new .said__who { color: var(--color-accent-soft-ink); font-weight: 600; }

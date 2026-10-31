@@ -1,5 +1,6 @@
 import { DEMO_LINES } from '../demoScript.ts';
 import type { Phase } from '../api/client.ts';
+import { reviewHref } from '../reviewLines.ts';
 
 type Props = {
   phase: Phase;
@@ -8,10 +9,15 @@ type Props = {
   onRestart: () => void;
   /** Sends one student line as a typed message. */
   onSend: (text: string) => void;
+  /** The sent account's reference, once there is a receipt: the jump to NUSSU's side. */
+  reviewRef: string | null;
 };
 
-/** The presenter's demo controls: restart, and the five storyboard lines as one-press messages. Rendered in dev at laptop width only. */
-export function DemoBar({ phase, busy, onRestart, onSend }: Props) {
+/**
+ * The presenter's demo controls: restart, the five storyboard lines as one-press messages, and after sending, a link to
+ * NUSSU's side in a new tab. Rendered in dev at laptop width only; a student never sees the reviewer view.
+ */
+export function DemoBar({ phase, busy, onRestart, onSend, reviewRef }: Props) {
   const canSend = phase === 'chat' && !busy;
   return (
     <div className="demobar" role="group" aria-label="Demo controls">
@@ -23,6 +29,11 @@ export function DemoBar({ phase, busy, onRestart, onSend }: Props) {
           Line {i + 1}
         </button>
       ))}
+      {reviewRef && (
+        <a className="demobar__btn demobar__link" href={reviewHref(reviewRef)} target="_blank" rel="noopener" title="Or press n">
+          See it on NUSSU's side
+        </a>
+      )}
     </div>
   );
 }

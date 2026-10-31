@@ -193,6 +193,7 @@ export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: 
     contact: (contact: string) => post<{ ok: true }>('/api/contact', { contact }),
     reviewGroups: () => send<{ consultation: Consultation; groups: ReviewGroup[] }>('GET', '/api/review/groups'),
     reviewStrip: (groupId: string) => send<Strip>('GET', `/api/review/strip/${encodeURIComponent(groupId)}`),
+    reviewLocate: (ref: string) => send<{ ref: string; group_id: string }>('GET', `/api/review/locate/${encodeURIComponent(ref)}`),
     /** The demo reset: restores the seed accounts and clears every session. Only the demo bar may call this. */
     reset: () => post<{ ok: true }>('/api/admin/reset', {}),
   };

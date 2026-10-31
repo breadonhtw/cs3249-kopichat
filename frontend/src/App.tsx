@@ -7,6 +7,7 @@ import { DemoBar } from './components/DemoBar.tsx';
 import { NoticeStrip } from './components/NoticeStrip.tsx';
 import { OverallQuestion } from './components/OverallQuestion.tsx';
 import { Receipt } from './components/Receipt.tsx';
+import { isReviewKey, reviewHref } from './reviewLines.ts';
 import { screenFor } from './screenFor.ts';
 import { SummaryCard } from './components/SummaryCard.tsx';
 import { isEditableTarget, isToggleKey, SystemView } from './components/SystemView.tsx';
@@ -50,6 +51,18 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [laptop]);
 
+  // The demo's jump to NUSSU's side, by key as well as by the demo bar link: the receipt scrolls the bar out of view.
+  const reviewRef = state.phase === 'receipt' && state.account ? state.account.ref_code : null;
+  useEffect(() => {
+    if (!laptop || !import.meta.env.DEV || reviewRef === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!isReviewKey(e) || isEditableTarget(e.target as HTMLElement | null)) return;
+      window.open(reviewHref(reviewRef), '_blank', 'noopener');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [laptop, reviewRef]);
+
   const screen = screenFor(state, inSummary && lookingBack);
   const onOverall = screen === 'overall';
   const onSummary = screen === 'summary';
@@ -71,7 +84,13 @@ export function App() {
           </div>
         )}
         {laptop && import.meta.env.DEV && (
-          <DemoBar phase={state.phase} busy={state.busy} onRestart={() => void session.restart()} onSend={(text) => void session.send(text)} />
+          <DemoBar
+            phase={state.phase}
+            busy={state.busy}
+            onRestart={() => void session.restart()}
+            onSend={(text) => void session.send(text)}
+            reviewRef={reviewRef}
+          />
         )}
         <div className="shell">
           <NoticeStrip

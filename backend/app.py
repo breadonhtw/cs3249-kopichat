@@ -232,6 +232,15 @@ def review_groups():
     return {"consultation": content.CONSULTATION, "groups": strip.groups(STORE, content.CONSULTATION["id"])}
 
 
+@app.get("/api/review/locate/{ref_code}")
+def review_locate(ref_code: str):
+    """Which group holds a submitted account: how the demo jumps from the student's receipt to NUSSU's side."""
+    group_id = strip.locate(STORE, ref_code)
+    if group_id is None:
+        raise HTTPException(status_code=404, detail="No account with that reference.")
+    return {"ref": ref_code, "group_id": group_id}
+
+
 @app.get("/api/review/strip/{group_id}")
 def review_strip(group_id: str):
     built = strip.build(STORE, group_id)

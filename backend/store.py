@@ -196,6 +196,11 @@ class Store:
             raise KeyError(account_id)
         return self._account(row)
 
+    def account_by_ref(self, ref_code: str) -> dict | None:
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM accounts WHERE ref_code = ?", (ref_code,)).fetchone()
+        return self._account(row) if row else None
+
     def account_for_session(self, session_id: str) -> dict | None:
         """The account this session submitted, withdrawn or not, or None."""
         with self._conn() as c:

@@ -24,3 +24,21 @@ export function groupFacts(group: { count: number; pending: boolean; id: string 
 export function pickGroup(groups: ReviewGroup[]): string | null {
   return (groups.find((g) => g.has_art) ?? groups[0])?.id ?? null;
 }
+
+const REF = /^KR-\d{4}$/;
+
+/** The KR reference the reviewer page was opened on (?ref=KR-1234), or null. Anything else in the address is ignored. */
+export function refFromSearch(search: string): string | null {
+  const ref = new URLSearchParams(search).get('ref');
+  return ref !== null && REF.test(ref) ? ref : null;
+}
+
+/** Where the demo's jump goes: the reviewer page, opened on the student's group with their account marked. */
+export function reviewHref(ref: string): string {
+  return `/review?ref=${encodeURIComponent(ref)}`;
+}
+
+/** The presenter's key for the jump: a plain press of `n` (any case), not held and not part of a shortcut. */
+export function isReviewKey(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; repeat?: boolean }): boolean {
+  return e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
+}

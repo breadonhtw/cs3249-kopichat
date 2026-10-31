@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Consultation, ReviewGroup, Strip as StripData } from '../api/client.ts';
 import { client } from '../api/clientInstance.ts';
-import { pickGroup } from '../reviewLines.ts';
+import { pickGroup, refFromSearch } from '../reviewLines.ts';
 import { themeShort } from '../themeLabel.ts';
 import { Strip } from './Strip.tsx';
 
@@ -12,17 +12,21 @@ export function Review() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [strip, setStrip] = useState<StripData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Opened from the demo's jump (?ref=KR-1234): start on that account's group and mark its lines.
+  const [ref] = useState(() => refFromSearch(window.location.search));
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
-    client
-      .reviewGroups()
-      .then((body) => {
+    const located = ref === null ? Promise.resolve(null) : client.reviewLocate(ref).then((r) => r.group_id).catch(() => null);
+    Promise.all([client.reviewGroups(), located])
+      .then(([body, groupId]) => {
         setConsultation(body.consultation);
         setGroups(body.groups);
-        setChosen(pickGroup(body.groups));
+        setMissing(ref !== null && groupId === null);
+        setChosen(groupId ?? pickGroup(body.groups));
       })
       .catch((e: Error) => setError(e.message));
-  }, []);
+  }, [ref]);
 
   useEffect(() => {
     if (chosen === null) return;
@@ -48,6 +52,7 @@ export function Review() {
       </header>
 
       {error && <p className="review__error" role="alert">{error}</p>}
+      {missing && <p className="review__meta" role="status">{ref} is not in the consultation: it was withdrawn, or the reference is wrong.</p>}
 
       <div className="review__body">
         <nav className="review__groups" aria-label="Groups">
@@ -75,7 +80,7 @@ export function Review() {
         </nav>
 
         <main className="review__main">
-          {strip ? <Strip strip={strip} /> : chosen !== null && !error && <p className="review__meta">Loading the strip.</p>}
+          {strip ? <Strip strip={strip} highlight={ref} /> : chosen !== null && !error && <p className="review__meta">Loading the strip.</p>}
         </main>
       </div>
     </div>

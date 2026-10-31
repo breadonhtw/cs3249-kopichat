@@ -65,6 +65,14 @@ def groups(store: store_mod.Store, consultation_id: str) -> list[dict]:
     return out
 
 
+def locate(store: store_mod.Store, ref_code: str) -> str | None:
+    """The group id that holds this reference, UNGROUPED for an account no group holds, or None when it is not there."""
+    account = store.account_by_ref(ref_code)
+    if account is None or account["withdrawn"]:
+        return None
+    return account["group_id"] or UNGROUPED
+
+
 def build(store: store_mod.Store, group_id: str, consultation_id: str = content.CONSULTATION["id"]) -> dict | None:
     """The strip for one group, or for the ungrouped accounts. None when the group does not exist."""
     if group_id == UNGROUPED:

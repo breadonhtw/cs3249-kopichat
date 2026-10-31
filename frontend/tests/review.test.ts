@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countLine, drawnLine, groupFacts, pickGroup } from '../src/reviewLines.ts';
+import { countLine, drawnLine, groupFacts, pickGroup, refFromSearch, reviewHref, isReviewKey } from '../src/reviewLines.ts';
 
 test('a count says how many of the group said something', () => {
   assert.equal(countLine({ said: 3, of: 3 }), '3 of 3 said');
@@ -29,4 +29,24 @@ test('the first group shown is one with illustrations, else the first', () => {
   assert.equal(pickGroup([g('a', false), g('b', true)]), 'b');
   assert.equal(pickGroup([g('a', false)]), 'a');
   assert.equal(pickGroup([]), null);
+});
+
+test('the reviewer page reads a KR reference from its address, and nothing else', () => {
+  assert.equal(refFromSearch('?ref=KR-3158'), 'KR-3158');
+  assert.equal(refFromSearch('?ref=KR-0042&x=1'), 'KR-0042');
+  assert.equal(refFromSearch(''), null);
+  assert.equal(refFromSearch('?ref=KR-31'), null);
+  assert.equal(refFromSearch('?ref=<script>'), null);
+});
+
+test('the jump link opens the reviewer page on that reference', () => {
+  assert.equal(reviewHref('KR-3158'), '/review?ref=KR-3158');
+});
+
+test('n opens NUSSU side: a plain press only, not a held key or a shortcut', () => {
+  assert.equal(isReviewKey({ key: 'n' }), true);
+  assert.equal(isReviewKey({ key: 'N' }), true);
+  assert.equal(isReviewKey({ key: 'n', metaKey: true }), false);
+  assert.equal(isReviewKey({ key: 'n', repeat: true }), false);
+  assert.equal(isReviewKey({ key: 's' }), false);
 });

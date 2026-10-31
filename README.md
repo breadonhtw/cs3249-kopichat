@@ -66,6 +66,7 @@ Start from a fresh seed state: use "Restart demo" in the demo bar (laptop width,
 5. When the chat reaches the sufficient message, or sooner by choosing the "Check my summary" chip, read the summary.
 6. Edit the "How often" row, then press Approve and send.
 7. Watch the receipt: "Received" stamps, your slip is carried onto the noticeboard and pressed on, the count goes from 6 to 7, and the two other accounts in your group are carried over beside it. A tap anywhere skips to the end. Then read the reference code, the group label and what was sent.
+8. Cut to NUSSU's side: press `n`, or use "See it on NUSSU's side" in the demo bar (laptop width, dev server only). The reviewer view opens in a new tab on the student's group, with their lines marked in teal and "New: KR-1234. Its lines are marked." at the top. Students never see this link.
 
 "Restart demo" calls the reset endpoint, which restores the six seed accounts and clears all sessions, then reloads the consultation. It is the way to run the walkthrough twice in a row.
 

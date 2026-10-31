@@ -391,3 +391,14 @@ def test_a_submitted_account_appears_in_its_group_strip(client, monkeypatch):
     assert morning["count"] == 3
     s = client.get(f"/api/review/strip/{morning['id']}").json()
     assert sent["account"]["ref_code"] in [l["who"] for l in s["panels"][0]["sections"][0]["said"]]
+
+
+def test_review_locate_points_a_reference_at_its_group(client, monkeypatch):
+    _to_chat(client)
+    monkeypatch.setattr(llm, "enabled", lambda: True)
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **k: {"theme": "transport", "group": "Morning boarding at Kent Ridge MRT", "needs_review": False})
+    ref = _submit(client)["account"]["ref_code"]
+    found = client.get(f"/api/review/locate/{ref}").json()
+    morning = next(g for g in client.get("/api/review/groups").json()["groups"] if g["name"] == "Morning boarding at Kent Ridge MRT")
+    assert found == {"ref": ref, "group_id": morning["id"]}
+    assert client.get("/api/review/locate/KR-0000").status_code == 404

@@ -110,3 +110,17 @@ def test_ungrouped_accounts_have_their_own_strip(db):
 
 def test_unknown_group_is_none(db):
     assert T.build(db, "nope") is None
+
+
+def test_locate_finds_the_group_that_holds_a_reference(db):
+    a = _submit(db)
+    assert T.locate(db, a["ref_code"]) == db.group_id_for(MORNING)
+    loose = _submit(db, sid="s2", group=None)
+    assert T.locate(db, loose["ref_code"]) == T.UNGROUPED
+
+
+def test_locate_gives_nothing_for_unknown_or_withdrawn_references(db):
+    assert T.locate(db, "KR-0000") is None
+    a = _submit(db)
+    db.withdraw(a["id"])
+    assert T.locate(db, a["ref_code"]) is None

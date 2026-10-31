@@ -195,6 +195,8 @@
   .demobar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-xs); max-width: 390px; margin-inline: auto; padding: 0 var(--space-md) var(--space-xs); }
   .demobar__btn { min-height: 32px; padding: 0 var(--space-sm); border: var(--rule-hair) solid var(--color-rule); border-radius: 10px; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-display); font-weight: 600; font-size: var(--text-sm); cursor: pointer; }
   .demobar__btn:disabled { cursor: not-allowed; opacity: 0.45; }
+  .demobar__link { display: inline-flex; align-items: center; border-color: var(--color-ink); text-decoration: none; }
+  .demobar__link:hover { background: var(--color-paper-2); }
   .phone .shell { min-height: calc(100dvh - 44px); }
   .layout__panel { flex: none; width: 420px; position: sticky; top: 0; height: 100dvh; overflow-y: auto; }
   .layout__panel--open { background: var(--color-paper); border-left: var(--rule-hair) solid var(--color-rule); }
