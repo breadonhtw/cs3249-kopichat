@@ -33,6 +33,29 @@ ART = {
         "effect": {"src": f"{_MORNING}/effect.jpg", "alt": "Illustration: a student with a backpack slips into a tutorial room late while the class is under way."},
         "differing": {"src": f"{_MORNING}/differing.jpg", "shows": "C", "alt": "Illustration: inside a shuttle bus, a suitcase and a bag occupy the wheelchair space."},
     },
+    # Account C's own picture is the morning strip's wheelchair-space panel; D's is the tour on the walkway. Each is
+    # reused wherever that account appears, in its own group or kept visible in another.
+    "Access obstruction": {
+        "cover": {"src": "/strips/access-obstruction/cover.jpg", "alt": "Illustration: a shuttle bus waits at a covered stop beside modern campus buildings and a lawn."},
+        "what": {"src": f"{_MORNING}/differing.jpg", "alt": "Illustration: inside a shuttle bus, a suitcase and a bag occupy the wheelchair space."},
+        "effect": {"src": "/strips/access-obstruction/effect.jpg", "alt": "Illustration: one shuttle bus pulls away from the stop while the next is still far down the road; people wait under the shelter."},
+        "differing": {"src": "/strips/no-effect/what.jpg", "shows": "D", "alt": "Illustration: a guide points out a building to a small group of visitors of mixed ages on a covered walkway."},
+    },
+    "No noticeable boarding effect": {
+        "cover": {"src": "/strips/no-effect/cover.jpg", "alt": "Illustration: students walk along a covered walkway towards a bus stop where a few people wait, mid-morning."},
+        "what": {"src": "/strips/no-effect/what.jpg", "alt": "Illustration: a guide points out a building to a small group of visitors of mixed ages on a covered walkway."},
+        "effect": {"src": "/strips/no-effect/effect.jpg", "alt": "Illustration: students step straight onto a shuttle bus; inside there are free seats."},
+        "differing": {"src": f"{_MORNING}/differing.jpg", "shows": "C", "alt": "Illustration: inside a shuttle bus, a suitcase and a bag occupy the wheelchair space."},
+    },
+    "Lunch queue at Frontier": {
+        "cover": {"src": "/strips/lunch-queue/cover.jpg", "alt": "Illustration: a busy covered campus canteen at lunchtime, most tables taken."},
+        "what": {"src": "/strips/lunch-queue/what.jpg", "alt": "Illustration: a long queue of students stretches back from one stall past the tables."},
+    },
+    "Study space at CLB": {
+        "cover": {"src": "/strips/study-space/cover.jpg", "alt": "Illustration: students study at long tables with reading lamps in a library reading area."},
+        "what": {"src": "/strips/study-space/what.jpg", "alt": "Illustration: two people photograph the library reading area with a phone and a camera while students keep working."},
+        "often": {"src": "/strips/study-space/often.jpg", "alt": "Illustration: on another afternoon, a different person photographs the bookshelves while students study."},
+    },
 }
 
 
@@ -90,8 +113,11 @@ def build(store: store_mod.Store, group_id: str, consultation_id: str = content.
 
     panels = []
     for key, title, sections in PANELS:
-        panels.append({"key": key, "title": title, "art": None if key in NO_ART else art.get(key),
-                       "sections": [_section(label, field, members) for label, field in sections]})
+        built = [_section(label, field, members) for label, field in sections]
+        # A picture only where someone in the group said something: otherwise it would show what nobody reported.
+        spoken = any(sec["count"]["said"] for sec in built)
+        panels.append({"key": key, "title": title, "art": art.get(key) if spoken and key not in NO_ART else None,
+                       "sections": built})
 
     differing = [d for d in store.differing(consultation_id, exclude or "__none__")
                  if d["id"] not in {m["id"] for m in members}]

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from backend import strip as T, store as S, policy as p, content
 
@@ -30,7 +32,7 @@ def test_groups_list_counts_members_and_marks_art(db):
     morning = next(g for g in groups if g["name"] == MORNING)
     assert morning["count"] == 2 and morning["theme"] == "transport" and morning["has_art"] is True
     assert all(g["count"] >= 1 for g in groups)
-    assert next(g for g in groups if g["name"] == "Lunch queue at Frontier")["has_art"] is False
+    assert all(g["has_art"] for g in groups if g["id"] != T.UNGROUPED)
 
 
 def test_seed_strip_quotes_every_member_and_counts_who_said_it(db):
@@ -86,9 +88,27 @@ def test_art_comes_from_the_table_and_differing_art_needs_its_account(db):
     assert _panel(T.build(db, db.group_id_for(MORNING)), "differing")["art"] is None
 
 
-def test_a_group_without_art_is_text_only(db):
+def test_a_group_without_art_is_text_only(db, monkeypatch):
+    monkeypatch.delitem(T.ART, "Lunch queue at Frontier")
     s = T.build(db, db.group_id_for("Lunch queue at Frontier"))
     assert s["cover"] is None and all(x["art"] is None for x in s["panels"])
+
+
+def test_a_panel_nobody_in_the_group_spoke_to_has_no_picture(db):
+    db.withdraw("A")  # A alone gave how often and the effect
+    s = T.build(db, db.group_id_for(MORNING))
+    assert _panel(s, "what")["art"] is not None
+    assert _panel(s, "often")["art"] is None and _panel(s, "effect")["art"] is None
+
+
+def test_every_picture_in_the_table_is_in_the_frontend(db):
+    public = Path(__file__).resolve().parents[1] / "frontend" / "public"
+    seed_groups = {g["name"] for g in T.groups(db, "campus-visitors-2026")}
+    assert seed_groups - {T.UNGROUPED_NAME} <= set(T.ART)
+    for name, panels in T.ART.items():
+        for key, art in panels.items():
+            assert (public / art["src"].lstrip("/")).is_file(), (name, key)
+            assert art["alt"].startswith("Illustration: "), (name, key)
 
 
 def test_withdrawn_members_leave_the_strip(db):
