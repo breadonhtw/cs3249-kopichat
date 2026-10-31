@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend import aggregate, content, llm, orchestrator, policy, store
+from backend import aggregate, content, llm, orchestrator, policy, store, strip
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
@@ -225,6 +226,25 @@ def admin_reset():
     return {"ok": True}
 
 
-# Static frontend last, so it never shadows the API routes.
+# NUSSU reviewer view. A demo: there is no sign-in, which a real reviewer view would need.
+@app.get("/api/review/groups")
+def review_groups():
+    return {"consultation": content.CONSULTATION, "groups": strip.groups(STORE, content.CONSULTATION["id"])}
+
+
+@app.get("/api/review/strip/{group_id}")
+def review_strip(group_id: str):
+    built = strip.build(STORE, group_id)
+    if built is None:
+        raise HTTPException(status_code=404, detail="No such group.")
+    return built
+
+
+# Static frontend last, so it never shadows the API routes. /review is a page of the same single-page app.
 if FRONTEND_DIST.is_dir():
+    @app.get("/review")
+    def review_page():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

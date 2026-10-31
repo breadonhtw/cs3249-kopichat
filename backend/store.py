@@ -203,10 +203,10 @@ class Store:
         return self._account(row) if row else None
 
     def group(self, group_id: str) -> dict | None:
-        """{name, pending} for a group id, or None."""
+        """{name, theme, pending} for a group id, or None."""
         with self._conn() as c:
-            row = c.execute("SELECT name, pending FROM groups WHERE id = ?", (group_id,)).fetchone()
-        return {"name": row["name"], "pending": bool(row["pending"])} if row else None
+            row = c.execute("SELECT name, theme, pending FROM groups WHERE id = ?", (group_id,)).fetchone()
+        return {"name": row["name"], "theme": row["theme"], "pending": bool(row["pending"])} if row else None
 
     def group_id_for(self, name: str) -> str | None:
         with self._conn() as c:
@@ -236,6 +236,23 @@ class Store:
                 " WHERE a.consultation_id = ? AND a.withdrawn = 0 GROUP BY g.name", (consultation_id,))}
         return {"contributors": contributors, "seeds": seeds, "by_theme": by_theme, "by_group": by_group}
 
+    def groups(self, consultation_id: str) -> list[dict]:
+        """Groups with at least one account still in the consultation, largest first."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT g.id, g.name, g.theme, g.pending, COUNT(*) AS n FROM groups g JOIN accounts a ON a.group_id = g.id"
+                " WHERE a.consultation_id = ? AND a.withdrawn = 0 GROUP BY g.id ORDER BY n DESC, g.name",
+                (consultation_id,)).fetchall()
+        return [{"id": r["id"], "name": r["name"], "theme": r["theme"], "pending": bool(r["pending"]), "count": r["n"]}
+                for r in rows]
+
+    def ungrouped(self, consultation_id: str) -> list[dict]:
+        """Accounts no group holds yet, oldest first: what a reviewer still has to place."""
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM accounts WHERE consultation_id = ? AND withdrawn = 0 AND group_id IS NULL"
+                             " ORDER BY created_at, id", (consultation_id,)).fetchall()
+        return [self._account(r) for r in rows]
+
     def accounts(self, consultation_id: str) -> list[dict]:
         """Every account still in the consultation, oldest first: id, excerpt and theme only."""
         with self._conn() as c:
@@ -254,5 +271,5 @@ class Store:
             effect = next((f for f in a["fields"] if f.get("key") == "effect"), None)
             if a["standalone"] or (effect and effect.get("status") == "explicit_none"):
                 out.append({"id": a["id"], "excerpt": a["excerpt"], "note": a["note"] or "no effect reported",
-                            "theme": a["theme"]})
+                            "theme": a["theme"], "ref_code": a["ref_code"]})
         return out

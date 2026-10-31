@@ -70,6 +70,12 @@ Start from a fresh seed state: use "Restart demo" in the demo bar (laptop width,
 "Restart demo" calls the reset endpoint, which restores the six seed accounts and clears all sessions, then reloads the consultation. It is the way to run the walkthrough twice in a row.
 
 
+## Reviewer view
+
+NUSSU's side is at http://localhost:5173/review (or http://localhost:8000/review from the built app). It lists the consultation's groups, largest first, with the accounts no group holds yet as one more entry, and shows the chosen group as a comic strip: what happened, how often, the effect, their read on the cause and what would help, and the accounts that differ. Every caption line is a stored field quoted as the student left it, with who said it (a seed letter or a KR reference) and a count such as "2 of 3 said"; a skipped or missing field says so. Nothing on the page is written by a model.
+
+Only "Morning boarding at Kent Ridge MRT" has illustrations, in `frontend/public/strips/morning-boarding/`. They were drawn with gpt-image-2 from reference photos and checked by hand; the table that assigns them is `ART` in `backend/strip.py`. Every other group is shown as text only. The cause panel is never illustrated, because a picture would state a cause the accounts only suspect. The view has no sign-in: it is a demo, and a real reviewer view would need NUSSU's sign-in before it shows students' words.
+
 ## Tests
 
 From the repository root:

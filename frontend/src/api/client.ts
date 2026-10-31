@@ -79,6 +79,20 @@ export type FallbackAnswers = Partial<Record<'q1_what' | 'q2_often' | 'q3_effect
 
 export type SubmitResult = { account: { id: string; ref_code: string }; aggregate: Aggregate };
 
+/** NUSSU reviewer view: one group in the list. `id` is "ungrouped" for the accounts no group holds yet. */
+export type ReviewGroup = { id: string; name: string; theme: string; pending: boolean; count: number; has_art: boolean };
+
+/** One caption line: a stored field quoted as the student left it, or why there is no quote. */
+export type StripLine = { who: string; quote: string | null; note: string | null };
+export type StripSection = { label: string | null; said: StripLine[]; count: { said: number; of: number | null } };
+export type StripArt = { src: string; alt: string; shows?: string };
+export type StripPanel = { key: string; title: string; art: StripArt | null; sections: StripSection[] };
+export type Strip = {
+  group: { id: string; name: string; theme: string; pending: boolean; count: number };
+  cover: StripArt | null;
+  panels: StripPanel[];
+};
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -177,6 +191,8 @@ export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: 
     submit: () => post<SubmitResult>('/api/submit', { approved: true }),
     withdraw: () => post<{ ok: true }>('/api/withdraw', {}),
     contact: (contact: string) => post<{ ok: true }>('/api/contact', { contact }),
+    reviewGroups: () => send<{ consultation: Consultation; groups: ReviewGroup[] }>('GET', '/api/review/groups'),
+    reviewStrip: (groupId: string) => send<Strip>('GET', `/api/review/strip/${encodeURIComponent(groupId)}`),
     /** The demo reset: restores the seed accounts and clears every session. Only the demo bar may call this. */
     reset: () => post<{ ok: true }>('/api/admin/reset', {}),
   };

@@ -160,7 +160,7 @@ def test_an_old_database_gains_the_pending_column(tmp_path):
         c.execute("CREATE TABLE groups (id TEXT PRIMARY KEY, theme TEXT NOT NULL, name TEXT NOT NULL UNIQUE)")
         c.execute("INSERT INTO groups VALUES ('g', 'transport', 'Old group')")
     s = S.Store(path); s.init()
-    assert s.group("g") == {"name": "Old group", "pending": False}
+    assert s.group("g") == {"name": "Old group", "theme": "transport", "pending": False}
 
 
 def test_board_lists_the_other_accounts_with_their_themes(db):

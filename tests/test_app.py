@@ -366,3 +366,28 @@ def test_a_model_proposed_group_reaches_the_student_as_pending(client, monkeypat
     _to_chat(client)
     agg = _submit(client)["aggregate"]
     assert agg["group"]["name"] == "New group, pending review" and agg["group"]["pending"] is True
+
+
+def test_review_lists_groups_and_builds_a_strip(client):
+    body = client.get("/api/review/groups").json()
+    assert body["consultation"]["id"] == "campus-visitors-2026"
+    morning = next(g for g in body["groups"] if g["name"] == "Morning boarding at Kent Ridge MRT")
+    assert morning["count"] == 2 and morning["has_art"] is True
+    s = client.get(f"/api/review/strip/{morning['id']}").json()
+    assert s["group"]["name"] == "Morning boarding at Kent Ridge MRT"
+    assert [p["key"] for p in s["panels"]] == ["what", "often", "effect", "read", "differing"]
+
+
+def test_review_strip_for_an_unknown_group_is_404(client):
+    assert client.get("/api/review/strip/nope").status_code == 404
+
+
+def test_a_submitted_account_appears_in_its_group_strip(client, monkeypatch):
+    _to_chat(client)
+    monkeypatch.setattr(llm, "enabled", lambda: True)
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **k: {"theme": "transport", "group": "Morning boarding at Kent Ridge MRT", "needs_review": False})
+    sent = _submit(client)
+    morning = next(g for g in client.get("/api/review/groups").json()["groups"] if g["name"] == "Morning boarding at Kent Ridge MRT")
+    assert morning["count"] == 3
+    s = client.get(f"/api/review/strip/{morning['id']}").json()
+    assert sent["account"]["ref_code"] in [l["who"] for l in s["panels"][0]["sections"][0]["said"]]
