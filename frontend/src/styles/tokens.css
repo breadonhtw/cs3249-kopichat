@@ -1,5 +1,7 @@
-/* Hallmark · theme: ink (by request) · ink: paper · scope: app · deviations: tinted-262, no-outlier, motion-submission-only, teal-means-received, one-family */
-/* sloplint: Floor 0 FAIL · Reflex 0 (0 waived; stale 47b waiver removed, gate does not fire) · 29 Oct 2026 */
+/* Hallmark · theme: ink (by request) · ink: paper · scope: app · deviations: tinted-262, no-outlier, motion-submission-only, teal-means-received, one-family, review-comic (full-colour panels in a square 2px ink frame, chosen by the group, UI brief 11.4) */
+/* sloplint: Floor 0 FAIL · Reflex 0 · /review re-checked after the Hallmark audit, 31 Oct 2026 */
+/* Hallmark · dropped onClick={() => setChosen(g.id)} · the group button now calls choose(), which still sets the chosen group and also writes ?group= to the address */
+/* Hallmark · reworded "Not everyone had the same experience" to "Outside this group" · the finish review found it inaccurate on the reviewer strip, whose accounts sit outside the group */
 :root {
   color-scheme: light;
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;

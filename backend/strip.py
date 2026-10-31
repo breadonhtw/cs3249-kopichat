@@ -123,9 +123,9 @@ def build(store: store_mod.Store, group_id: str, consultation_id: str = content.
                  if d["id"] not in {m["id"] for m in members}]
     shown = art.get("differing")
     panels.append({
-        "key": "differing", "title": "Not everyone had the same experience",
+        "key": "differing", "title": "Outside this group",
         "art": shown if shown and shown.get("shows") in {d["id"] for d in differing} else None,
-        "sections": [{"label": "Kept visible, outside this group",
+        "sections": [{"label": "Accounts that differ, kept visible",
                       "said": [{"who": d.get("ref_code") or d["id"], "quote": d["excerpt"], "note": d["note"]}
                                for d in differing],
                       "count": {"said": len(differing), "of": None}}],

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countLine, drawnLine, groupFacts, pickGroup, refFromSearch, reviewHref, isReviewKey } from '../src/reviewLines.ts';
+import { countLine, drawnLine, groupFacts, pickGroup, refFromSearch, reviewHref, isReviewKey, splitQuote, repeatsOf, silentLine, tallyRows, groupFromSearch, searchWithGroup } from '../src/reviewLines.ts';
+import type { Strip } from '../src/api/client.ts';
 
 test('a count says how many of the group said something', () => {
   assert.equal(countLine({ said: 3, of: 3 }), '3 of 3 said');
@@ -13,9 +14,56 @@ test('accounts outside the group are counted as kept visible', () => {
   assert.equal(countLine({ said: 0, of: null }), 'None outside this group');
 });
 
-test('an illustration says what it is drawn from and what it is not', () => {
-  assert.equal(drawnLine(3), 'Illustration of what 3 accounts describe, not a photograph of one event.');
-  assert.equal(drawnLine(1), 'Illustration of what 1 account describes, not a photograph of one event.');
+test('an illustration says how many accounts it is drawn from', () => {
+  assert.equal(drawnLine(3), 'Drawn from 3 accounts.');
+  assert.equal(drawnLine(1), 'Drawn from 1 account.');
+});
+
+test('dates the app appended leave the quote, and stay readable beside it', () => {
+  assert.deepEqual(splitQuote("Couldn't get onto the first A2; yesterday, around 8.45am [2026-10-30]"),
+    { words: "Couldn't get onto the first A2; yesterday, around 8.45am", dates: ['30 Oct 2026'] });
+  assert.deepEqual(splitQuote('3 times; this month [2026-10]; yesterday [2026-10-30]'),
+    { words: '3 times; this month; yesterday', dates: ['Oct 2026', '30 Oct 2026'] });
+  assert.deepEqual(splitQuote('late for a 9am lecture'), { words: 'late for a 9am lecture', dates: [] });
+  assert.deepEqual(splitQuote('room [2026-13-01] stays'), { words: 'room stays', dates: [] });
+});
+
+test('a line repeating an earlier line word for word is marked with who said it first', () => {
+  const l = (who: string, quote: string | null) => ({ who, quote, note: quote ? null : 'not said' });
+  const r = repeatsOf([l('A', 'full at 9am'), l('K1', 'Got in late [2026-10-30]'), l('B', null), l('K2', 'got in late [2026-10-31]')]);
+  assert.deepEqual([...r], [['K2', 'K1']]);
+});
+
+test('a section nobody spoke to is one line naming who skipped it and who never said it', () => {
+  const l = (who: string, note: string) => ({ who, quote: null, note });
+  assert.equal(silentLine([l('A', 'not said'), l('B', 'skipped'), l('C', 'not said')]), 'Not said by A, C. Skipped by B.');
+  assert.equal(silentLine([l('A', 'not said')]), 'Not said by A.');
+});
+
+test('the head tally has a row per section, with the outside accounts counted as accounts', () => {
+  const sec = (said: number, of: number | null) => ({ label: null, said: [], count: { said, of } });
+  const strip: Strip = {
+    group: { id: 'g', name: 'G', theme: 't', pending: false, count: 4 }, cover: null,
+    panels: [
+      { key: 'what', title: 'What happened', art: null, sections: [sec(4, 4)] },
+      { key: 'read', title: 'Their read', art: null, sections: [sec(4, 4), sec(0, 4)] },
+      { key: 'differing', title: 'Outside this group', art: null, sections: [sec(2, null)] },
+    ],
+  };
+  assert.deepEqual(tallyRows(strip), [
+    { id: 'panel-what', label: 'What happened', figure: '4 of 4' },
+    { id: 'panel-read', label: 'Their read on the cause', figure: '4 of 4' },
+    { id: 'panel-read', label: 'What would help', figure: '0 of 4' },
+    { id: 'panel-differing', label: 'Outside this group', figure: '2 accounts' },
+  ]);
+});
+
+test('the chosen group lives in the address, and only a listed group is read back', () => {
+  assert.equal(groupFromSearch('?group=g2', ['g1', 'g2']), 'g2');
+  assert.equal(groupFromSearch('?group=gone', ['g1']), null);
+  assert.equal(groupFromSearch('', ['g1']), null);
+  assert.equal(searchWithGroup('?ref=KR-3158', 'g2'), '?ref=KR-3158&group=g2');
+  assert.equal(searchWithGroup('?group=g1', 'g2'), '?group=g2');
 });
 
 test('group facts name the count and a pending or model-proposed name', () => {
