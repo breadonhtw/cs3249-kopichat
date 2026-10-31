@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Aggregate, Consultation, SummaryRow } from '../api/client.ts';
+import { layoutBoard } from '../boardLayout.ts';
 import { consentRows } from '../copy.ts';
-import { planBeats, reducedMotion, type BeatName } from '../motion.ts';
-import { awaitingReview, denominatorLine, placementLines } from '../receiptLines.ts';
+import { applyEvent, MOMENT_START, momentEnd, momentTimeline, reducedMotion, type MomentState } from '../motion.ts';
+import { awaitingReview, denominatorLine, placementLines, youExcerptOf } from '../receiptLines.ts';
 import { themeLabel } from '../themeLabel.ts';
+import { Board } from './Board.tsx';
 import { Counter } from './Counter.tsx';
 import { InlineConfirm } from './InlineConfirm.tsx';
-import { Ledger, youExcerptOf } from './Ledger.tsx';
 import { rowDisplay } from './SummaryCard.tsx';
 
 type Props = {
@@ -26,25 +27,47 @@ type Props = {
 export function Receipt({ consultation, account, aggregate, summary, withdrawn, replay = true, busy, onWithdraw, onContact, onDone }: Props) {
   // Nothing to play when there is no aggregate; reduced motion and a reloaded receipt show the end state at once.
   const [settled, setSettled] = useState(() => aggregate === null || !replay || reducedMotion());
-  const [stage, setStage] = useState(0);
-  const names = useRef<BeatName[]>([]);
+  const [moment, setMoment] = useState<MomentState>(MOMENT_START);
   const heading = useRef<HTMLHeadingElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+
+  const youExcerpt = youExcerptOf(summary);
+  // An account awaiting review is not shown inside a group, whatever the classifier proposed.
+  const grouped = aggregate !== null && aggregate.group.name !== null && !awaitingReview(aggregate);
+  const layout = useMemo(
+    () =>
+      aggregate === null
+        ? null
+        : layoutBoard({
+            you: { text: youExcerpt, theme: aggregate.theme },
+            grouped,
+            group: aggregate.group.others,
+            differing: aggregate.differing,
+            others: aggregate.board ?? [],
+            contributors: aggregate.contributors,
+          }),
+    [aggregate, youExcerpt, grouped],
+  );
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // The receipt starts at the top of the screen, so "Received" and the whole board are in view for the moment.
+    // An exact position, because the page's scroll-padding would otherwise leave 96 px above it.
+    const top = root.current ? root.current.getBoundingClientRect().top + window.scrollY - 8 : 0;
+    window.scrollTo(0, Math.max(0, top));
     heading.current?.focus({ preventScroll: true });
   }, []);
 
   useEffect(() => {
-    if (settled || aggregate === null) return;
-    const beats = planBeats(aggregate, false);
-    names.current = beats.map((b) => b.name);
-    const timers = beats.map((b, i) => window.setTimeout(() => setStage(i + 1), b.at));
+    if (settled || layout === null) return;
+    const kept = layout.slips.some((s) => s.kind === 'differing');
+    const events = momentTimeline(layout.movers, { grouped: layout.cluster !== null, kept });
+    setMoment(MOMENT_START);
+    const timers = events.map((e) => window.setTimeout(() => setMoment((s) => applyEvent(s, e)), e.at));
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [settled, aggregate]);
+  }, [settled, layout]);
 
-  const reached = (name: BeatName): boolean => settled || names.current.slice(0, stage).includes(name);
-  const stamped = settled || stage >= 1;
+  const now = settled || layout === null ? momentEnd(layout?.movers ?? []) : moment;
+  const stamped = now.stamped;
 
   const [confirming, setConfirming] = useState(false);
   const [wantsUpdate, setWantsUpdate] = useState(false);
@@ -58,26 +81,63 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const status = withdrawn ? 'Withdrawn. Your account will not be included.' : saved ? 'Contact saved.' : removed ? 'Contact removed.' : '';
 
-  const youExcerpt = youExcerptOf(summary);
   const count = aggregate?.group.count ?? 1;
-  const grouped = aggregate !== null && aggregate.group.name !== null && !awaitingReview(aggregate);
   const playing = !settled && aggregate !== null;
   const counterFrom = aggregate === null ? 0 : Math.max(0, aggregate.contributors - 1);
   const counterTo = aggregate === null ? 0 : aggregate.contributors;
-  const counterPlays = playing && reached('writeIn');
-  const kept = reached('kept');
-  const closed = reached('closing');
+  const counterPlays = playing && now.counted;
+  const kept = now.kept;
+  const closed = now.closed;
+  const boardLabel =
+    aggregate === null
+      ? { lines: [] }
+      : grouped
+        ? {
+            name: aggregate.group.name ?? undefined,
+            lines: [count === 1 ? 'Only yours so far' : `${count} accounts, yours included`, 'Provisional grouping. A reviewer checks it.'],
+          }
+        : { lines: placementLines(aggregate) };
 
   return (
-    <div className={settled ? 'receipt receipt--settled' : 'receipt'} onClick={() => setSettled(true)}>
-      <p className="muted">Provisional. Not yet reviewed by NUSSU.</p>
+    <div ref={root} className={settled ? 'receipt receipt--settled' : 'receipt'} onClick={() => setSettled(true)}>
 
-      <header className="receipt__head">
-        <h1 ref={heading} tabIndex={-1} className={stamped ? 'receipt__stamp is-on' : 'receipt__stamp'}>
-          {withdrawn ? 'Withdrawn' : 'Received'}
-        </h1>
-        {account && <p className="receipt__code">{account.ref_code}</p>}
-      </header>
+      <div className="receipt__top">
+        <header className="receipt__head">
+          <h1 ref={heading} tabIndex={-1} className={stamped ? 'receipt__stamp is-on' : 'receipt__stamp'}>
+            {withdrawn ? 'Withdrawn' : 'Received'}
+          </h1>
+          {account && <p className="receipt__code">{account.ref_code}</p>}
+          <p className="receipt__flag">Provisional. Not yet reviewed by NUSSU.</p>
+        </header>
+        {aggregate !== null && !withdrawn && (
+          <div className="receipt__count">
+            <Counter from={counterFrom} to={now.counted ? counterTo : counterFrom} play={counterPlays} />
+            <p className="receipt__denominator">{denominatorLine(aggregate)}</p>
+          </div>
+        )}
+      </div>
+
+      {aggregate !== null && layout !== null && !withdrawn && (
+        <section className="receipt__where" aria-labelledby="receipt-sits">
+          <h2 id="receipt-sits" className="visually-hidden">Where your account sits</h2>
+          <Board layout={layout} state={now} playing={playing} label={boardLabel} />
+          {layout.hidden > 0 && (
+            <p className="muted">{layout.slips.length} of {aggregate.contributors} accounts shown.</p>
+          )}
+          <p className={playing && !closed ? 'receipt__closing' : 'receipt__closing is-on'}>{aggregate.closing_line}</p>
+          <div className="receipt__facts">
+            <p className="body">Theme: {themeLabel(aggregate.theme)}</p>
+            {placementLines(aggregate).map((line) => (
+              <p key={line} className="body">{line}</p>
+            ))}
+            {grouped && count > 1 && (
+              <p className="body">
+                Across the {count} of you: {aggregate.coverage.how_often.said} said how often.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {summary.length > 0 && (
         <section className="receipt__card" aria-labelledby="receipt-sent">
@@ -105,31 +165,6 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
 
       {aggregate !== null && !withdrawn && (
         <>
-          <section className="receipt__card" aria-labelledby="receipt-sits">
-            <h2 id="receipt-sits">Where your account sits</h2>
-            <div className="receipt__facts">
-              <p className="body">Theme: {themeLabel(aggregate.theme)}</p>
-              {placementLines(aggregate).map((line) => (
-                <p key={line} className="body">{line}</p>
-              ))}
-            </div>
-            <div className="receipt__count">
-              <Counter from={counterFrom} to={reached('writeIn') ? counterTo : counterFrom} play={counterPlays} />
-              <p className="muted">{denominatorLine(aggregate)}</p>
-            </div>
-            <Ledger
-              aggregate={aggregate}
-              youExcerpt={youExcerpt}
-              play={playing}
-              reached={{ writeIn: reached('writeIn'), bracket: reached('bracket'), kept }}
-            />
-            {grouped && count > 1 && (
-              <p className="body">
-                Across the {count} of you: {aggregate.coverage.how_often.said} said how often.
-              </p>
-            )}
-          </section>
-
           {aggregate.differing.length > 0 && (
             <section className="receipt__card" aria-labelledby="receipt-differing">
               <h2 id="receipt-differing">Not everyone had the same experience</h2>
@@ -260,10 +295,6 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
           ))}
         </details>
       </section>
-
-      {aggregate !== null && !withdrawn && (
-        <p className={playing && !closed ? 'receipt__closing' : 'receipt__closing is-on'}>{aggregate.closing_line}</p>
-      )}
 
       <button type="button" className="btn btn--primary" onClick={onDone}>
         Done

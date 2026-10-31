@@ -1,27 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ledgerRows, youExcerptOf } from '../src/components/Ledger.tsx';
-import { themeLabel } from '../src/themeLabel.ts';
-import { denominatorLine, placementLines } from '../src/receiptLines.ts';
+import { themeLabel, themeShort } from '../src/themeLabel.ts';
+import { denominatorLine, placementLines, youExcerptOf } from '../src/receiptLines.ts';
 
 const agg = {
   theme: 'transport',
   group: { name: 'Morning boarding at Kent Ridge MRT', count: 3, others: [{ id: 'a', excerpt: 'Two buses passed full' }, { id: 'b', excerpt: 'Waited 25 minutes' }] },
   differing: [{ id: 'd', excerpt: 'Bus was fine for me', note: 'No effect on me' }],
 } as any;
-
-test('ledger rows: group others, then the student, then differing', () => {
-  const rows = ledgerRows(agg, 'the bus never stopped');
-  assert.deepEqual(rows.map(r => [r.kind, r.key]), [['group', 'a'], ['group', 'b'], ['you', 'you'], ['differing', 'd']]);
-  assert.deepEqual(rows[0], { kind: 'group', key: 'a', first: 'Transport access and crowding', excerpt: 'Two buses passed full' });
-  assert.deepEqual(rows[2], { kind: 'you', key: 'you', first: 'Transport access and crowding', excerpt: 'the bus never stopped' });
-  assert.deepEqual(rows[3], { kind: 'differing', key: 'd', first: 'No effect on me', excerpt: 'Bus was fine for me' });
-});
-
-test('first to report: only the student row, then differing', () => {
-  const rows = ledgerRows({ ...agg, group: { name: null, count: 1, others: [] } }, 'x');
-  assert.deepEqual(rows.map(r => r.kind), ['you', 'differing']);
-});
 
 test('the student excerpt is the what row, cut to 60 characters', () => {
   const rows = [{ key: 'what', label: 'What happened', text: 'a'.repeat(80), status: 'quoted' as const }];
@@ -66,8 +52,8 @@ test('a grouped account names its group and the others in it', () => {
   assert.deepEqual(placementLines(pending), ['Group: New group, pending review', 'You are the first to report this']);
 });
 
-test('a pending group carries its pending label into the ledger', () => {
-  const pending = { ...agg, group: { name: 'New group, pending review', pending: true, count: 1, others: [] } };
-  const rows = ledgerRows(pending, 'x');
-  assert.deepEqual(rows.map((r) => r.kind), ['you', 'differing']);
+test('short theme names for slips', () => {
+  assert.equal(themeShort('transport'), 'Transport');
+  assert.equal(themeShort('food'), 'Food court');
+  assert.equal(themeShort('unheard-of'), 'Other');
 });

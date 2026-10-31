@@ -1,4 +1,13 @@
-import type { Aggregate } from './api/client.ts';
+import type { Aggregate, SummaryRow } from './api/client.ts';
+
+const EXCERPT_MAX = 60;
+
+/** The student's own slip text: the summary's "what" row, cut to 60 characters. */
+export function youExcerptOf(rows: SummaryRow[]): string {
+  const text = rows.find((r) => r.key === 'what')?.text.trim() ?? '';
+  if (text === '') return 'not given';
+  return text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX - 1).trimEnd()}…` : text;
+}
 
 /** The live count's denominator: seed accounts, other real accounts (left out when there are none), and the student. */
 export function denominatorLine(aggregate: Pick<Aggregate, 'contributors' | 'seeds'>): string {

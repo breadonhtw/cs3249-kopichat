@@ -10,6 +10,7 @@ GROUP_NAME_MAX = 60
 NEW_GROUP_PREFIX = "new: "
 PENDING_GROUP_NAME = "New group, pending review"  # a model-written group name never reaches the student
 CLOSING_LINE = "This is what NUSSU reads before it decides what to raise."
+BOARD_MAX = 8  # other accounts sent for the receipt's noticeboard; the screen shows fewer
 _NO_GROUP = "__none__"  # sentinel: excludes no group in store.differing
 
 
@@ -61,6 +62,10 @@ def build(store: store_mod.Store, account_id: str) -> dict:
         coverage = {"said": 1 if _often_score(account) == 2 else 0, "of": 1}
     differing = [d for d in store.differing(account["consultation_id"], group_id or _NO_GROUP)
                  if d["id"] != account_id]
+    # The rest of the board: accounts in neither the student's group nor the differing list.
+    shown = {account_id, *(o["id"] for o in group["others"]), *(d["id"] for d in differing)}
+    board = [{"id": b["id"], "excerpt": b["excerpt"], "theme": b["theme"]}
+             for b in store.accounts(account["consultation_id"]) if b["id"] not in shown][:BOARD_MAX]
     return {
         "provisional": True,
         "theme": account["theme"],
@@ -68,7 +73,8 @@ def build(store: store_mod.Store, account_id: str) -> dict:
         "group": group,
         "contributors": counts["contributors"],
         "seeds": counts["seeds"],
-        "differing": [{"id": d["id"], "excerpt": d["excerpt"], "note": d["note"]} for d in differing],
+        "differing": [{"id": d["id"], "excerpt": d["excerpt"], "note": d["note"], "theme": d["theme"]} for d in differing],
+        "board": board,
         "coverage": {"how_often": coverage},
         "closing_line": CLOSING_LINE,
     }

@@ -65,7 +65,7 @@ Start from a fresh seed state: use "Restart demo" in the demo bar (laptop width,
 4. After line 2, press `s` (or the "System view" button) to open the system view and watch the scores and checks change turn by turn.
 5. When the chat reaches the sufficient message, or sooner by choosing the "Check my summary" chip, read the summary.
 6. Edit the "How often" row, then press Approve and send.
-7. Read the receipt: the reference code, the live count, and the ledger of your account against the group's.
+7. Watch the receipt: "Received" stamps, your slip is carried onto the noticeboard and pressed on, the count goes from 6 to 7, and the two other accounts in your group are carried over beside it. A tap anywhere skips to the end. Then read the reference code, the group label and what was sent.
 
 "Restart demo" calls the reset endpoint, which restores the six seed accounts and clears all sessions, then reloads the consultation. It is the way to run the walkthrough twice in a row.
 
@@ -106,5 +106,5 @@ The engine reads each message by extract-then-score: the language model only pul
 - There is one consultation, defined in `backend/content.py`.
 - Sessions are held in memory and are lost when the backend restarts. Submitted accounts are kept in `backend/kopichat.db`, and a reload after a restart returns a submitted session to its receipt, but a half-finished chat is not kept.
 - The chat logs keep students' raw messages and the raw model output.
-- The ledger on the receipt shows only the student's own group and the rows that differ from the group's first account, not every account.
+- The noticeboard on the receipt shows at most eight slips (the student's, two from the group, then differing accounts and other themes) and says how many more there are. Excerpts on slips are cut at three lines; the full text is under "What was sent".
 - The unclear options offered when a message is ambiguous are written by the language model, so they can be imperfect. The student can always type their own answer instead.

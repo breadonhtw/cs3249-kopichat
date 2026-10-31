@@ -100,13 +100,13 @@ def test_build_shape_and_projection(db):
     a = _submit(db)
     db.assign(a["id"], "transport", "Morning boarding at Kent Ridge MRT", False)
     agg = A.build(db, a["id"])
-    assert set(agg) == {"provisional", "theme", "needs_review", "group", "contributors", "seeds", "differing", "coverage", "closing_line"}
+    assert set(agg) == {"provisional", "theme", "needs_review", "group", "contributors", "seeds", "differing", "board", "coverage", "closing_line"}
     assert agg["theme"] == "transport" and agg["needs_review"] is False
     assert agg["group"]["name"] == "Morning boarding at Kent Ridge MRT" and agg["group"]["pending"] is False
     assert agg["closing_line"] == "This is what NUSSU reads before it decides what to raise."
     assert all(set(o) == {"id", "excerpt"} for o in agg["group"]["others"])
     assert {o["id"] for o in agg["group"]["others"]} == {"A", "B"}
-    assert all(set(d) == {"id", "excerpt", "note"} for d in agg["differing"])
+    assert all(set(d) == {"id", "excerpt", "note", "theme"} for d in agg["differing"])
     assert a["id"] not in {d["id"] for d in agg["differing"]}
 
 
@@ -161,3 +161,26 @@ def test_an_old_database_gains_the_pending_column(tmp_path):
         c.execute("INSERT INTO groups VALUES ('g', 'transport', 'Old group')")
     s = S.Store(path); s.init()
     assert s.group("g") == {"name": "Old group", "pending": False}
+
+
+def test_board_lists_the_other_accounts_with_their_themes(db):
+    a = _submit(db)
+    db.assign(a["id"], "transport", "Morning boarding at Kent Ridge MRT", False)
+    agg = A.build(db, a["id"])
+    # Not the student, not the group (A, B), not the differing accounts (C, D): the food and study seeds.
+    assert agg["board"] == [
+        {"id": "E", "excerpt": "Frontier queue 12-1pm longer this month; visitors or exams", "theme": "food"},
+        {"id": "F", "excerpt": "Visitors photographing in CLB reading area, twice last week", "theme": "study"},
+    ]
+    assert {d["id"]: d["theme"] for d in agg["differing"]} == {"C": "transport", "D": "transport"}
+
+
+def test_board_leaves_out_withdrawn_accounts_and_is_capped(db):
+    a = _submit(db)
+    db.assign(a["id"], "transport", "Morning boarding at Kent Ridge MRT", False)
+    db.withdraw("E")
+    assert [b["id"] for b in A.build(db, a["id"])["board"]] == ["F"]
+    for i in range(12):
+        other = db.submit(f"x{i}", {**p.new_state("campus-visitors-2026"), "approved": True}, [])
+        db.assign(other["id"], "food", None, False)
+    assert len(A.build(db, a["id"])["board"]) == A.BOARD_MAX

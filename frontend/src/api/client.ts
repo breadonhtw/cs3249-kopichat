@@ -67,7 +67,9 @@ export type Aggregate = {
   group: { name: string | null; pending?: boolean; count: number; others: { id: string; excerpt: string }[] };
   contributors: number;
   seeds: number;
-  differing: { id: string; excerpt: string; note: string }[];
+  differing: { id: string; excerpt: string; note: string; theme?: string }[];
+  /** Other accounts in the consultation, for the receipt's noticeboard. Older servers leave it out. */
+  board?: { id: string; excerpt: string; theme: string }[];
   coverage: { how_often: { said: number; of: number } };
   closing_line: string;
 };

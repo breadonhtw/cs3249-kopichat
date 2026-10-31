@@ -12,3 +12,18 @@ const LABELS: Record<string, string> = {
 export function themeLabel(key: string): string {
   return Object.hasOwn(LABELS, key) ? LABELS[key]! : 'Other';
 }
+
+const SHORT: Record<string, string> = {
+  transport: 'Transport',
+  food: 'Food court',
+  study: 'Study and teaching',
+  access: 'Accessibility',
+  privacy: 'Privacy',
+  other: 'Other',
+  needs_review: 'Needs review',
+};
+
+/** The theme as a slip on the noticeboard names it: one or two words. */
+export function themeShort(key: string): string {
+  return Object.hasOwn(SHORT, key) ? SHORT[key]! : 'Other';
+}

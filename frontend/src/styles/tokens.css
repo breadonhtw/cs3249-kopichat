@@ -15,6 +15,7 @@
   --color-rule: oklch(89% 0.005 262); --color-rule-2: oklch(93.5% 0.004 262);
   --color-accent: oklch(50% 0.095 188); --color-accent-ink: oklch(99.5% 0.003 100); --color-accent-soft: oklch(93% 0.05 190); --color-accent-soft-ink: oklch(27% 0.045 190);
   --color-focus: oklch(50% 0.095 188);
+  --color-pinhole: oklch(85% 0.006 262); --color-shadow-near: oklch(20% 0.01 262 / 0.10); --color-shadow-far: oklch(20% 0.01 262 / 0.22);
   --font-display: "Epilogue", ui-sans-serif, system-ui, sans-serif; --font-body: var(--font-display);
   --font-outlier: var(--font-display);
   --radius-card: 12px; --radius-pill: 999px; --rule-hair: 1px;

@@ -1,12 +1,3 @@
-import type { Aggregate } from './api/client.ts';
-
-/** The beats of the submission moment, as [start, end] in milliseconds. Total 4.5 s; the closing line is the last thing to appear. */
-export const BEATS = { stamp: [0, 400], writeIn: [400, 2000], bracket: [2000, 3200], kept: [3200, 4200], closing: [4200, 4500] } as const;
-
-export type BeatName = keyof typeof BEATS;
-export type Beat = { name: BeatName; at: number; duration: number };
-
-const ORDER: BeatName[] = ['stamp', 'writeIn', 'bracket', 'kept', 'closing'];
 const FRAME_MS = 1000 / 60;
 
 export function reducedMotion(): boolean {
@@ -14,20 +5,74 @@ export function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** One step of the submission moment, at `at` ms. `move` carries its travel time in `ms`. */
+export type MomentEvent = {
+  at: number;
+  kind: 'stamp' | 'carryIn' | 'pressIn' | 'count' | 'lift' | 'move' | 'press' | 'group' | 'kept' | 'closing';
+  id?: string;
+  ms?: number;
+};
+
+/** What the board shows at a point in the moment. `lifted`, `moved` and `pressed` hold group slip ids. */
+export type MomentState = {
+  stamped: boolean; youIn: boolean; youPressed: boolean; counted: boolean;
+  lifted: string[]; moved: string[]; pressed: string[];
+  grouped: boolean; kept: boolean; closed: boolean;
+};
+
+export const MOMENT_START: MomentState = {
+  stamped: false, youIn: false, youPressed: false, counted: false,
+  lifted: [], moved: [], pressed: [], grouped: false, kept: false, closed: false,
+};
+
+/** Times in ms. The student's slip is carried in for 900 ms; each group slip after it is lifted, carried, pressed. */
+export const MOMENT = { stamp: 40, carryIn: 250, carryMs: 900, pressIn: 1200, count: 1500, gather: 1800, gap: 600, liftLead: 150, moveMs: [800, 1000] } as const;
+
+export function momentEnd(movers: string[]): MomentState {
+  return { stamped: true, youIn: true, youPressed: true, counted: true, lifted: [], moved: [...movers], pressed: [...movers],
+    grouped: true, kept: true, closed: true };
+}
+
 /**
- * The beats to play, in order. With reduced motion every beat is zero-length at 0, so the end state shows at once.
- * With no group there is nothing to bracket: that beat is dropped and the later beats start that much earlier.
+ * The events of the moment, in time order. With a group of three it ends at 4.35 s: stamp, the student's slip carried
+ * in and pressed, the count, the two group slips carried over one after the other, the frame, kept, the closing line.
  */
-export function planBeats(aggregate: Aggregate, reduced: boolean): Beat[] {
-  const bracketed = aggregate.group.name !== null;
-  const names = ORDER.filter((name) => bracketed || name !== 'bracket');
-  return names.map((name) => {
-    if (reduced) return { name, at: 0, duration: 0 };
-    const [start, end] = BEATS[name];
-    const skipped = bracketed ? 0 : BEATS.bracket[1] - BEATS.bracket[0];
-    const at = name === 'kept' || name === 'closing' ? start - skipped : start;
-    return { name, at, duration: end - start };
+export function momentTimeline(movers: string[], { grouped, kept }: { grouped: boolean; kept: boolean }): MomentEvent[] {
+  const events: MomentEvent[] = [
+    { at: MOMENT.stamp, kind: 'stamp' },
+    { at: MOMENT.carryIn, kind: 'carryIn', ms: MOMENT.carryMs },
+    { at: MOMENT.pressIn, kind: 'pressIn' },
+    { at: MOMENT.count, kind: 'count' },
+  ];
+  let after: number = MOMENT.count;
+  movers.forEach((id, i) => {
+    const lift = MOMENT.gather + i * MOMENT.gap;
+    const ms = MOMENT.moveMs[Math.min(i, MOMENT.moveMs.length - 1)]!;
+    events.push({ at: lift, kind: 'lift', id }, { at: lift + MOMENT.liftLead, kind: 'move', id, ms },
+      { at: lift + MOMENT.liftLead + ms, kind: 'press', id });
+    after = Math.max(after, lift + MOMENT.liftLead + ms);
   });
+  if (grouped) events.push({ at: (after += 200), kind: 'group' });
+  if (kept) events.push({ at: (after += 300), kind: 'kept' });
+  events.push({ at: after + 300, kind: 'closing' });
+  // Stable sort: events at the same time keep the order they were pushed in.
+  return events.map((e, i) => ({ e, i })).sort((a, b) => a.e.at - b.e.at || a.i - b.i).map(({ e }) => e);
+}
+
+export function applyEvent(state: MomentState, e: MomentEvent): MomentState {
+  const id = e.id ?? '';
+  switch (e.kind) {
+    case 'stamp': return { ...state, stamped: true };
+    case 'carryIn': return { ...state, youIn: true };
+    case 'pressIn': return { ...state, youPressed: true };
+    case 'count': return { ...state, counted: true };
+    case 'lift': return { ...state, lifted: [...state.lifted, id] };
+    case 'move': return { ...state, moved: [...state.moved, id] };
+    case 'press': return { ...state, lifted: state.lifted.filter((x) => x !== id), pressed: [...state.pressed, id] };
+    case 'group': return { ...state, grouped: true };
+    case 'kept': return { ...state, kept: true };
+    case 'closing': return { ...state, closed: true };
+  }
 }
 
 /** Integer values for the counter tick, one per display frame, easing out. First is `from`, last is `to`, length at least 2. */

@@ -236,6 +236,13 @@ class Store:
                 " WHERE a.consultation_id = ? AND a.withdrawn = 0 GROUP BY g.name", (consultation_id,))}
         return {"contributors": contributors, "seeds": seeds, "by_theme": by_theme, "by_group": by_group}
 
+    def accounts(self, consultation_id: str) -> list[dict]:
+        """Every account still in the consultation, oldest first: id, excerpt and theme only."""
+        with self._conn() as c:
+            rows = c.execute("SELECT id, excerpt, theme FROM accounts WHERE consultation_id = ? AND withdrawn = 0"
+                             " ORDER BY created_at, id", (consultation_id,)).fetchall()
+        return [dict(r) for r in rows]
+
     def differing(self, consultation_id: str, exclude_group_id: str | None) -> list[dict]:
         with self._conn() as c:
             rows = c.execute(
@@ -246,5 +253,6 @@ class Store:
             a = self._account(r)
             effect = next((f for f in a["fields"] if f.get("key") == "effect"), None)
             if a["standalone"] or (effect and effect.get("status") == "explicit_none"):
-                out.append({"id": a["id"], "excerpt": a["excerpt"], "note": a["note"] or "no effect reported"})
+                out.append({"id": a["id"], "excerpt": a["excerpt"], "note": a["note"] or "no effect reported",
+                            "theme": a["theme"]})
         return out

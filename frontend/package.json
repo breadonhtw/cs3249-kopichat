@@ -13,7 +13,7 @@
     "start": "node scripts/start.mjs",
     "doctor": "node scripts/doctor.mjs",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test tests/client.test.ts tests/useSession.test.ts tests/consentCard.test.ts tests/thread.test.ts tests/summary.test.ts tests/motion.test.ts tests/receipt.test.ts tests/systemview.test.ts tests/screenFor.test.ts scripts/tests/local-scripts.test.mjs scripts/tests/locator-paths.test.mjs"
+    "test": "tsx --test tests/client.test.ts tests/useSession.test.ts tests/consentCard.test.ts tests/thread.test.ts tests/summary.test.ts tests/motion.test.ts tests/board.test.ts tests/receipt.test.ts tests/systemview.test.ts tests/screenFor.test.ts scripts/tests/local-scripts.test.mjs scripts/tests/locator-paths.test.mjs"
   },
   "dependencies": {
     "lucide-react": "1.45.0",
