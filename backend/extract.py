@@ -6,7 +6,7 @@ from datetime import date
 from backend import llm, prompts
 from backend.schema import CHECKS, DIMENSIONS
 
-ROUTES = {"continue", "crisis", "out_of_scope_person", "out_of_scope_appeal",
+ROUTES = {"continue", "crisis", "out_of_scope_person", "out_of_scope_appeal", "instruction",
           "meta_why", "meta_anonymous", "stop", "unclear"}
 MAX_MESSAGE_CHARS = prompts.MAX_MESSAGE_CHARS
 

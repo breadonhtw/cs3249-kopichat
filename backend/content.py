@@ -9,7 +9,7 @@ CONSULTATION = {
     "title": "Campus visitors and student experience",
     "why": "To understand how visitor presence on campus is affecting students' day-to-day experience.",
     "closing_date": "12 November 2026",
-    "overall_options": ["Positively", "No noticeable effect", "Negatively", "Mixed", "Not sure"],
+    "overall_options": ["Positively", "Negatively", "Mixed", "No noticeable effect"],
 }
 
 OPENING = "In your own words, what's been happening? A recent example helps most."
@@ -54,6 +54,7 @@ OUT_OF_SCOPE_PERSON = f"{PRODUCT_NAME} collects experiences of campus services, 
 OUT_OF_SCOPE_APPEAL = f"{PRODUCT_NAME} cannot handle individual appeals or casework. For that, contact your faculty office or the Office of Student Affairs. Shall we continue with your general experience?"
 CRISIS_MESSAGE = "Thank you for telling me. If you are in distress, please contact Lifeline NUS (+65 65167777) now. The questions are paused; nothing has been sent."
 
+INSTRUCTION_MESSAGE = "I can only record what you experienced, in your own words. Nothing is sent until you approve the summary."
 STOP_MESSAGE = "Nothing has been sent. Delete what you typed?"
 UNAVAILABLE_MESSAGE = "The assistant is unavailable right now. Your replies are kept. Send your message again in a moment."
 NO_LLM_MESSAGE = "This app needs an LLM to run. Add an API key in .env, then restart the server."

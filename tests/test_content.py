@@ -95,7 +95,7 @@ def test_consultation_shape():
     assert c.CONSULTATION["title"] == "Campus visitors and student experience"
     assert c.CONSULTATION["why"] == "To understand how visitor presence on campus is affecting students' day-to-day experience."
     assert c.CONSULTATION["closing_date"] == "12 November 2026"
-    assert c.CONSULTATION["overall_options"] == ["Positively", "No noticeable effect", "Negatively", "Mixed", "Not sure"]
+    assert c.CONSULTATION["overall_options"] == ["Positively", "Negatively", "Mixed", "No noticeable effect"]  # Skip covers "not sure"
 
 
 def test_why_covers_every_dimension():
@@ -144,3 +144,7 @@ def test_summary_field_labels_verbatim():
         ("suggestion", "Suggestion"),
         ("feeling", "Feeling, in your words"),
     ]
+
+
+def test_instruction_message_is_plain_and_names_the_approval_gate():
+    assert "approve" in c.INSTRUCTION_MESSAGE and "sorry" not in c.INSTRUCTION_MESSAGE.lower()

@@ -156,6 +156,12 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
     if not llm.enabled():
         return _result(state, content.NO_LLM_MESSAGE)
 
+    # A message addressed to the agent is answered without a model call, and never kept.
+    if policy.looks_like_instruction(message):
+        res = _result(state, _with_pending(state, content.INSTRUCTION_MESSAGE))
+        _log(session_id, state, message, "instruction", None, res["reply"])
+        return res
+
     # The message joins the transcript only once the route is known to be "continue":
     # a name, a crisis disclosure or a meta question must not be re-sent to the LLM later.
     try:
@@ -241,6 +247,9 @@ def _route(state: dict, ex: dict, message: str) -> dict:
         return _result(state, _with_pending(state, content.ANONYMOUS_MESSAGE))
     if route == "stop":
         return _result(state, content.STOP_MESSAGE, chips=list(STOP_CHIPS))
+    if route == "instruction":
+        # Told what to do, the agent says what it can do and asks its question again. Nothing is extracted or kept.
+        return _result(state, _with_pending(state, content.INSTRUCTION_MESSAGE))
     if route == "unclear":
         options = [o for o in ex["unclear_options"]
                    if not any(word in o.lower() for word in extract.ACK_BANNED)]

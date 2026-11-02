@@ -4,6 +4,8 @@
 Code owns all of this. The LLM only extracts spans; it never picks the next question,
 decides sufficiency, or writes summary text. No LLM calls and no I/O here.
 """
+import re
+
 from backend import content, schema
 
 ASK_ORDER = ["q1_what", "q3_effect", "q2_often", "q4_basis", "q5_better"]
@@ -230,3 +232,20 @@ def build_summary(state: dict) -> list[dict]:
             text, status = state["edits"][key], "edited"
         rows.append({"key": key, "label": label, "text": text, "status": status})
     return rows
+
+
+# Messages addressed to the agent rather than describing an experience. A rule layer in front of the model, so a
+# red-team line is handled the same way every time; the model's own "instruction" route is the second net.
+_INSTRUCTION = re.compile(
+    r"\b(ignore|disregard|forget|override)\b.{0,40}\b(instructions?|rules?|prompt|guidelines?)\b"
+    r"|\b(mark|treat|record|log)\b.{0,30}\bas (approved|sent|submitted|done|complete)\b"
+    r"|\b(approve|submit|send)\b.{0,20}\b(it|this|now|to nussu)\b"
+    r"|\brecord that\b"
+    r"|\b(system prompt|your prompt|you are now|new instructions?|act as)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_instruction(message: str) -> bool:
+    """True when the message tells the agent what to do: approve, send, record, ignore its rules."""
+    return bool(_INSTRUCTION.search(message or ""))
