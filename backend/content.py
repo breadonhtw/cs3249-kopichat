@@ -19,7 +19,7 @@ QUESTIONS: dict[tuple[str, str], str] = {
     ("q1_what", "behaviour"): "Tell me about the most recent time: where you were, and what happened.",
     ("q1_what", "place"): "Where were you?",
     ("q1_what", "time"): "Roughly when was that?",
-    ("q1_what", "persons"): "Who else was there?",
+    ("q1_what", "persons"): "Was anyone else involved in what happened? You can say no.",
     ("q1_what", "conditions"): "What was it like there at the time?",
     ("q1_what", "location"): "Where exactly, within that place?",
     ("q1_what", "activities"): "What were you and the others doing?",

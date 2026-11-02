@@ -19,7 +19,7 @@ def test_order_q1_first_then_q3_q2():
 
 def test_never_reasks_a_met_check():
     st = p.apply_extraction(p.new_state("c"), ex({"q1_what": {"behaviour": "a", "place": "b", "time": "c"}}))
-    assert p.next_target(st) == ("q1_what", "persons")
+    assert p.next_target(st) == ("q1_what", "conditions")
 
 
 def test_q5_once_after_sufficient_and_budget():

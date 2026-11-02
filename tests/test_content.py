@@ -48,7 +48,7 @@ def test_verbatim_question_templates():
     assert c.QUESTIONS[("q5_better", "present")] == "Last one, and it's optional: what would a better experience look like? You can skip this."
     assert c.QUESTIONS[("q1_what", "place")] == "Where were you?"
     assert c.QUESTIONS[("q1_what", "time")] == "Roughly when was that?"
-    assert c.QUESTIONS[("q1_what", "persons")] == "Who else was there?"
+    assert c.QUESTIONS[("q1_what", "persons")] == "Was anyone else involved in what happened? You can say no."
     assert c.QUESTIONS[("q1_what", "conditions")] == "What was it like there at the time?"
     assert c.QUESTIONS[("q1_what", "location")] == "Where exactly, within that place?"
     assert c.QUESTIONS[("q1_what", "activities")] == "What were you and the others doing?"

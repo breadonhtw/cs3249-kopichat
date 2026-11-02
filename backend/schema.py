@@ -13,7 +13,9 @@ CHECKS = {
 
 STATES = ["provided", "explicit_none", "not_applicable", "declined", "not_asked"]
 
-Q1_ASK_ORDER = ["place", "time", "persons", "conditions", "location", "activities"]
+# Persons is asked last: a student describing their own experience is already the who, so it is only asked when the
+# account is thin on everything else. When someone else was involved it is usually volunteered and extracted anyway.
+Q1_ASK_ORDER = ["place", "time", "conditions", "location", "activities", "persons"]
 
 
 def _met(checks: dict, name: str) -> bool:
