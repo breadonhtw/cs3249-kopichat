@@ -7,6 +7,8 @@ def no_real_llm(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "none")
     # A dummy key, so tests that switch the provider on (and patch chat_json) are not read as 'no key'.
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    # Fixed question wording unless a test turns the phraser on itself, whatever .env says.
+    monkeypatch.setenv("PHRASE_QUESTIONS", "")
 
 
 @pytest.fixture(autouse=True)

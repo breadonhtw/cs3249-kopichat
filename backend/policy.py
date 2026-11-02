@@ -22,6 +22,7 @@ def new_state(consultation_id: str) -> dict:
         "follow_ups_used": 0,
         "last_target": None,
         "pending_question": None,
+        "question_source": None,  # "fixed" or "model": who worded the pending question
         "asked": [],
         "interpretation": {"cause": None, "uncertain": False},
         "resolved_dates": {},

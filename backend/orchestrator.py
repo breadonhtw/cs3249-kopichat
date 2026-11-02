@@ -2,7 +2,7 @@
 sees is written by the LLM except a short acknowledgement."""
 from datetime import datetime, timezone
 
-from backend import content, extract, llm, logbook, policy
+from backend import content, extract, llm, logbook, phrase, policy
 
 DEFAULT_CHIPS = ["Skip this question", "Why do you ask?", "Pause"]
 OUT_OF_SCOPE_PERSON_CHIPS = ["Continue without the name", "Stop"]
@@ -49,10 +49,18 @@ def _ask_next(state: dict, ack: str = "") -> str:
         state["phase"] = "summary"
         state["pending_question"] = None
         return content.SUFFICIENT_MESSAGE
-    question = policy.compose_question(target, state)
+    fixed = policy.compose_question(target, state)
+    question, source = fixed, "fixed"
+    # With PHRASE_QUESTIONS on, the model words the question the code chose; a sentence that fails a check, or a
+    # failed call, leaves the fixed string in place.
+    if phrase.enabled():
+        worded = phrase.phrase_question(fixed, target, state, ack)
+        if worded:
+            question, source = worded, "model"
     state.setdefault("asked", []).append(list(target))
     state["last_target"] = target[0]
     state["pending_question"] = question
+    state["question_source"] = source
     state["follow_ups_used"] += 1
     return f"{ack} {question}" if ack else question
 

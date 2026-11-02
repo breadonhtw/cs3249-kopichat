@@ -37,7 +37,7 @@ q2_often (how often):
 - most_recent (flag): when it last happened
 
 q3_effect (what effect it had):
-- impact_type: emotional, physical, academic, financial, time, safety or social
+- impact_type: emotional, physical, academic, financial, time, safety or social. A consequence usually shows its kind: when it does, tick impact_type too, with the span that shows it ("15 min late" is time, "missed my tutorial" is academic, "paid for a taxi" is financial)
 - consequence: something that actually happened ("missed my 2pm lecture")
 - degree: quantified or scaled ("20 minutes late", "8/10")
 - duration (flag): how long the effect lasted

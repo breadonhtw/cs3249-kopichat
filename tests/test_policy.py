@@ -127,7 +127,7 @@ def test_summary_rows_order_basis_cause_edits_and_skips():
 def test_new_state_shape():
     st = p.new_state("c")
     assert p.new_state("campus-visitors-2026")["consultation_id"] == "campus-visitors-2026"
-    assert set(st) == {"consultation_id", "dims", "overall", "phase", "follow_ups_used", "last_target", "pending_question", "interpretation",
+    assert set(st) == {"consultation_id", "dims", "overall", "phase", "follow_ups_used", "last_target", "pending_question", "question_source", "interpretation",
                        "resolved_dates", "edits", "approved", "transcript", "last_action", "stopped", "asked", "feeling"}
     assert st["asked"] == [] and st["feeling"] is None
     assert st["phase"] == "consent" and st["approved"] is False and st["stopped"] is None and st["follow_ups_used"] == 0
@@ -226,3 +226,4 @@ def test_feeling_row_quotes_the_students_feeling():
 
 def test_row_keeps_the_first_of_two_equal_spans():
     assert p._row([("packed", "packed"), ("Packed", "Packed"), ("crowded", "crowded")]) == "packed; crowded"
+
