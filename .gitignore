@@ -7,3 +7,6 @@ backend/kopichat.db
 frontend/node_modules/
 frontend/dist/
 .hallmark/
+
+# demo server logs and pids (scripts/demo)
+.demo/
