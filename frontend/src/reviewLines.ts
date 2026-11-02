@@ -131,3 +131,11 @@ export function groupsByTheme(groups: ReviewGroup[]): ThemeSection[] {
   }
   return sections;
 }
+
+/** The register's head line, summed from the groups on the page: "6 accounts in 5 groups". */
+export function groupsSummary(groups: ReviewGroup[]): string {
+  const accounts = groups.reduce((n, g) => n + g.count, 0);
+  const a = accounts === 1 ? '1 account' : `${accounts} accounts`;
+  const g = groups.length === 1 ? '1 group' : `${groups.length} groups`;
+  return `${a} in ${g}`;
+}

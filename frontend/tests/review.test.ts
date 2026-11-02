@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countLine, drawnLine, groupFacts, groupsByTheme, pickGroup, refFromSearch, reviewHref, isReviewKey, splitQuote, repeatsOf, silentLine, tallyRows, groupFromSearch, searchWithGroup } from '../src/reviewLines.ts';
+import { countLine, drawnLine, groupFacts, groupsByTheme, groupsSummary, pickGroup, refFromSearch, reviewHref, isReviewKey, splitQuote, repeatsOf, silentLine, tallyRows, groupFromSearch, searchWithGroup } from '../src/reviewLines.ts';
 import type { Strip } from '../src/api/client.ts';
 
 test('a count says how many of the group said something', () => {
@@ -108,4 +108,10 @@ test('the side nav folds groups by theme, keeping server order and totalling eac
     ['Study and teaching', 1, ['clb']],
   ]);
   assert.deepEqual(groupsByTheme([]), []);
+});
+
+test('the register head sums the accounts and counts the groups', () => {
+  const g = (id: string, count: number) => ({ id, name: id, theme: 't', pending: false, count, has_art: false });
+  assert.equal(groupsSummary([g('a', 2), g('b', 1), g('c', 1), g('d', 1), g('e', 1)]), '6 accounts in 5 groups');
+  assert.equal(groupsSummary([g('a', 1)]), '1 account in 1 group');
 });
