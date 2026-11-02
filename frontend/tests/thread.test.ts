@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderItemClass } from '../src/components/Thread.tsx';
+import { AGENT_NAME, renderItemClass, threadRows } from '../src/components/Thread.tsx';
 import { chipRow, DEFAULT_CHIPS } from '../src/chips.ts';
 import { failureEvent, initialSession, isCrisis, messageOf, SESSION_ENDED_TEXT, sessionReducer } from '../src/useSession.ts';
 import { fallbackAnswers } from '../src/components/FallbackForm.tsx';
@@ -9,7 +9,7 @@ import { ApiError } from '../src/api/client.ts';
 import { closedLine } from '../src/closedLine.ts';
 import type { TurnResult } from '../src/api/client.ts';
 
-test('agent turns are not bubbles', () => {
+test('turns are classed by who spoke', () => {
   assert.equal(renderItemClass({ role: 'agent', text: 'x' }), 'turn turn--agent');
   assert.equal(renderItemClass({ role: 'student', text: 'x' }), 'turn turn--student');
   assert.equal(renderItemClass({ role: 'status', text: 'x' }), 'turn turn--status');
@@ -191,4 +191,19 @@ test('the closed line leaves out the withdraw clause for a placeholder date', ()
   assert.equal(closedLine('[closing date]'), 'This consultation link has been used.');
   assert.equal(closedLine(''), 'This consultation link has been used.');
   assert.equal(closedLine('14 November'), 'This consultation link has been used. Withdraw before 14 November.');
+});
+
+test('the thread names the agent once, foots the latest agent bubble with the counter, and says when it is reading', () => {
+  const items = [
+    { role: 'agent' as const, text: 'Q1?' }, { role: 'student' as const, text: 'a' },
+    { role: 'agent' as const, text: 'Q2?' }, { role: 'status' as const, text: '' },
+  ];
+  const rows = threadRows(items, 'Negatively', 'Follow-up 1 of up to 5', true);
+  assert.deepEqual(rows.map((r) => r.kind), ['item', 'who', 'item', 'item', 'item', 'foot', 'reading']);
+  assert.equal(AGENT_NAME, 'Kopichat');
+  assert.deepEqual(rows[0], { kind: 'item', item: { role: 'status', text: 'Your overall view: Negatively, saved separately' }, key: 'overall' });
+  assert.deepEqual(rows[5], { kind: 'foot', text: 'Follow-up 1 of up to 5', key: 'foot-2' });
+  const quiet = threadRows([], null, '', false);
+  assert.deepEqual(quiet.map((r) => r.kind), ['item']);
+  assert.equal((quiet[0] as any).item.text, 'Overall view skipped, saved separately');
 });
