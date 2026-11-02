@@ -20,9 +20,14 @@ function Chevron() {
   );
 }
 
-function Row({ title, children }: { title: string; children: string }) {
+/** The label of the one control over the rows: it opens whatever is closed, and closes everything only once all are open. */
+export function rowsToggleLabel(openCount: number, total: number): 'Expand all' | 'Collapse all' {
+  return total > 0 && openCount === total ? 'Collapse all' : 'Expand all';
+}
+
+function Row({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: (open: boolean) => void; children: string }) {
   return (
-    <details className="row">
+    <details className="row" open={open} onToggle={(e) => onToggle((e.currentTarget as HTMLDetailsElement).open)}>
       <summary className="row__summary">
         <span>{title}</span>
         <Chevron />
@@ -35,6 +40,17 @@ function Row({ title, children }: { title: string; children: string }) {
 export function ConsentCard({ consultation, busy, onAgree }: Props) {
   const [agreed, setAgreed] = useState(false);
   const [declined, setDeclined] = useState(false);
+  const rows = consentRows(consultation.why);
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const toggleLabel = rowsToggleLabel(open.size, rows.length);
+  const setRow = (title: string, isOpen: boolean) =>
+    setOpen((prev) => {
+      if (prev.has(title) === isOpen) return prev;
+      const next = new Set(prev);
+      if (isOpen) next.add(title); else next.delete(title);
+      return next;
+    });
+  const toggleAll = () => setOpen(toggleLabel === 'Expand all' ? new Set(rows.map((r) => r.title)) : new Set());
 
   if (declined) {
     return (
@@ -55,8 +71,13 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
         summary.
       </p>
       <div className="rows">
-        {consentRows(consultation.why).map((row) => (
-          <Row key={row.title} title={row.title}>
+        <div className="rows__bar">
+          <button type="button" className="rows__toggle" onClick={toggleAll}>
+            {toggleLabel}
+          </button>
+        </div>
+        {rows.map((row) => (
+          <Row key={row.title} title={row.title} open={open.has(row.title)} onToggle={(isOpen) => setRow(row.title, isOpen)}>
             {row.body}
           </Row>
         ))}
