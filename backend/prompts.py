@@ -69,7 +69,7 @@ Rules:
 7. "interpretation.cause" is the student's own suspected cause, copied as a span, or null. Set "uncertain" to true when they hedge ("maybe", "I think", "not sure").
 8. "resolved_dates" maps a check name (for example "time", "timeframe", "most_recent") to an ISO date "YYYY-MM-DD" or month "YYYY-MM", computed from the "Today is" line. Include a check only when the student's words fix a date.
 9. "feeling" is a feeling word or phrase the student used about themselves, e.g. "damn frustrating", copied as a span; never inferred. Use null if they gave none.
-10. "ack" is at most 12 words that reuse the student's own words. No feelings, no causes, no "sounds", no "sorry". Use "" if nothing fits.
+10. "ack" is one short sentence, at most 20 words, acknowledging ONLY the student's most recent message. Address the student as "you"; never write "I" for the student. Reuse their own words and keep their numbers, places and times. No feelings, no causes, no "sounds", no "sorry", no filler such as "noted" or "got it". Use "" if the message gave no detail worth repeating. Examples: student "Maybe 3 times this month, always around that 8.45 slot." → "Three times this month, always around 8.45."; student "Waited for the next one and got to my tutorial about 15 min late." → "You waited for the next one and got to your tutorial about 15 min late."
 11. "route" is exactly one of:
 - continue: the message is an answer to the consultation
 - crisis: self-harm or danger to anyone

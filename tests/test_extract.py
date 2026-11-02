@@ -23,15 +23,23 @@ def test_unknown_keys_and_routes_dropped():
 def test_ack_rules():
     assert x.validate_extraction({"ack": "That sounds frustrating."}, T)["ack"] == ""
     capped = x.validate_extraction({"ack": "packed buses " * 20}, T)["ack"]  # grounded, then capped
-    assert len(capped) <= 80 and capped.endswith("buses") and ("packed buses " * 20).startswith(capped)
+    assert len(capped) <= x.ACK_MAX_CHARS and not capped.endswith(" ") and ("packed buses " * 20).startswith(capped + " ")
 
 
 def test_ack_cap_cuts_at_a_word_boundary_or_drops_the_ack():
-    t = ["the buses are packed " + "a" * 90]
-    assert x.validate_extraction({"ack": "buses packed " + "a" * 90}, t)["ack"] == "buses packed"
-    assert x.validate_extraction({"ack": "a" * 90 + " buses"}, t)["ack"] == ""  # first word longer than the cap
-    exact = "packed " * 11 + "buses"  # 82 characters: the 80th falls inside the last word
-    assert x.validate_extraction({"ack": exact}, T)["ack"] == ("packed " * 11).strip()
+    long = "a" * (x.ACK_MAX_CHARS + 10)
+    t = ["the buses are packed " + long]
+    assert x.validate_extraction({"ack": "buses packed " + long}, t)["ack"] == "buses packed"
+    assert x.validate_extraction({"ack": long + " buses"}, t)["ack"] == ""  # first word longer than the cap
+    exact = "packed " * 20 + "buses"  # 145 characters: the 140th falls inside the last word
+    assert x.validate_extraction({"ack": exact}, T)["ack"] == ("packed " * 20).strip()
+
+
+def test_ack_rule_anchors_to_the_latest_message_in_second_person():
+    from backend.prompts import EXTRACT_SYSTEM
+    rule = [line for line in EXTRACT_SYSTEM.splitlines() if line.startswith("10. ")][0]
+    assert "most recent message" in rule and 'as "you"' in rule and "at most 20 words" in rule
+    assert "\u201c" not in rule and "\u201d" not in rule  # straight quotes only: the model must see "" as the empty string
 
 
 def test_ack_grounding_counts_distinct_words():

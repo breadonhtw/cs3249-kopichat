@@ -24,7 +24,7 @@ if __package__ in (None, ""):  # run as a plain file: make `backend` importable
 
 from backend import llm, logbook  # noqa: E402
 
-CRITERION = "PASS: the acknowledgement reuses words the student wrote and names no cause and no feeling. FAIL: otherwise."
+CRITERION = "PASS: the acknowledgement reuses words from the student's latest message, addresses the student as you, and names no cause and no feeling. FAIL: otherwise."
 
 JUDGE_SYSTEM = (
     "You are a strict reviewer of one short acknowledgement that a feedback chatbot showed a student. "

@@ -10,7 +10,7 @@ ROUTES = {"continue", "crisis", "out_of_scope_person", "out_of_scope_appeal",
           "meta_why", "meta_anonymous", "stop", "unclear"}
 MAX_MESSAGE_CHARS = prompts.MAX_MESSAGE_CHARS
 
-ACK_MAX_CHARS = 80
+ACK_MAX_CHARS = 140
 ACK_BANNED = ["sounds", "sorry", "frustrating", "because"]
 MAX_UNCLEAR_OPTIONS = 3
 UNCLEAR_OPTION_MAX_CHARS = 40

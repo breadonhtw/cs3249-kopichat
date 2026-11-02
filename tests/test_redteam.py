@@ -149,7 +149,7 @@ def test_judge_prompt_is_built_from_a_logged_turn(tmp_path):
     turns = j.load_turns(log)
     assert [(t["session"], t["turn"]) for t in turns] == [("sess1", 2)]  # empty acks and non-turns are skipped
     prompt = j.build_prompt(turns[0]["student"], turns[0]["ack"])
-    assert "PASS: the acknowledgement reuses words the student wrote and names no cause and no feeling. FAIL: otherwise." in prompt
+    assert j.CRITERION in prompt and "latest message" in j.CRITERION
     assert "The buses are always packed." in prompt and "Packed buses." in prompt
     assert "VERDICT: PASS" in prompt and "VERDICT: FAIL" in prompt
 
