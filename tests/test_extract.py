@@ -63,6 +63,21 @@ def test_singlish_spans_validate():
     out = x.validate_extraction(raw, t)
     assert out["checks"]["q1_what"]["conditions"] and out["checks"]["q3_effect"]["impact_type"]
 
+def test_extract_turn_names_the_pending_question():
+    from backend import prompts
+    turn = prompts.extract_turn(["my friends?"], "2026-11-02", "Who else was there?")
+    assert "The question the student was last asked: Who else was there?" in turn
+    assert turn.index("last asked") < turn.index("1. my friends?")
+    assert "last asked" not in prompts.extract_turn(["hi"], "2026-11-02")  # the opening has no pending question
+
+
+def test_unclear_options_rule_asks_for_the_students_voice():
+    from backend.prompts import EXTRACT_SYSTEM
+    assert "in the student's own voice as a reply to the last question" in EXTRACT_SYSTEM
+    assert "Never an instruction or request to you" in EXTRACT_SYSTEM
+    assert '"wdym"' in EXTRACT_SYSTEM and "is \"meta_why\"" in EXTRACT_SYSTEM
+
+
 def test_long_message_truncated_in_prompt():
     from backend import prompts
     msg = "x" * 2000

@@ -84,3 +84,9 @@ test('start again makes a new session and never calls the demo reset', async () 
   await restartDemo(client, () => {});
   assert.deepEqual(calls, ['reset', 'session']);
 });
+
+test('a chosen option is sent as the option action, never as typed text', async () => {
+  const { optionRequest, NONE_OF_THESE } = await import('../src/chips.ts');
+  assert.deepEqual(optionRequest('My friends were there', 0), { action: 'option:0', bubble: true });
+  assert.deepEqual(optionRequest(NONE_OF_THESE, 3), { action: 'option:3', bubble: false });
+});

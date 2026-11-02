@@ -78,13 +78,18 @@ Rules:
 - meta_why: asks why a question is needed
 - meta_anonymous: asks about anonymity or who sees it
 - stop: wants to stop or delete
-- unclear: you cannot tell what the message refers to; then fill "unclear_options" with up to 3 short readings (each under 40 characters)
-12. The messages are the whole conversation so far. Score all of it afresh each time."""
+- unclear: you cannot tell what the message refers to, even read as a reply to the question the student was last asked; then fill "unclear_options" with up to 3 readings
+12. The messages are the whole conversation so far. Score all of it afresh each time. The turn also names the question the student was last asked: read their newest message as a reply to it. A short direct reply to that question ("my friends", "every morning", "no") is "continue", and its detail belongs to that question's dimension. A message asking what the question means ("wdym", "huh?", "what do you mean", "like what?") is "meta_why".
+13. Each entry in "unclear_options" is what the student might have meant, written in the student's own voice as a reply to the last question, under 40 characters, for example "My friends were there with me" or "The A2 at the UTown stop". Never an instruction or request to you ("Ask whether...", "Explain the question"), and never a question back to the student."""
 
 
-def extract_turn(transcript: list[str], today: str) -> str:
-    """User message for the extraction call: today's date and the student's messages, oldest first."""
-    lines = [f"Today is {today}.", "Student messages so far, oldest first:"]
+def extract_turn(transcript: list[str], today: str, pending: str | None = None) -> str:
+    """User message for the extraction call: today's date, the question the student was last asked, and the
+    student's messages, oldest first. The newest message is a reply to that question."""
+    lines = [f"Today is {today}."]
+    if pending:
+        lines.append(f"The question the student was last asked: {pending[:MAX_MESSAGE_CHARS]}")
+    lines.append("Student messages so far, oldest first (the last one answers that question):")
     lines += [f"{i}. {m[:MAX_MESSAGE_CHARS]}" for i, m in enumerate(transcript, 1)]
     return "\n".join(lines)
 

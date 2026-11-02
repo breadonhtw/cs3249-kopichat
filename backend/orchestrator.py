@@ -151,7 +151,7 @@ def handle(state: dict, message: str | None, action: str | None, today: str,
     # The message joins the transcript only once the route is known to be "continue":
     # a name, a crisis disclosure or a meta question must not be re-sent to the LLM later.
     try:
-        ex, raw = extract.extract_with_raw(state["transcript"] + [message], today)
+        ex, raw = extract.extract_with_raw(state["transcript"] + [message], today, state["pending_question"])
     except llm.LLMError as e:
         res = _result(state, content.UNAVAILABLE_MESSAGE)
         _log(session_id, state, message, action, None, res["reply"], error=str(e))

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiError, chipAction } from './api/client.ts';
-import { DEFAULT_CHIPS } from './chips.ts';
+import { DEFAULT_CHIPS, optionRequest } from './chips.ts';
 import type { Aggregate, Consultation, FallbackAnswers, Phase, ServerState, SessionInfo, SummaryRow, TurnResult, createClient } from './api/client.ts';
 
 export type Client = ReturnType<typeof createClient>;
@@ -344,8 +344,11 @@ export function useSession(client: Client) {
     option: (i: number) => {
       const text = stateRef.current.options[i];
       if (text === undefined || inFlight.current) return Promise.resolve();
-      dispatch({ type: 'student', text });
-      return turn(text);
+      const { action, bubble } = optionRequest(text, i);
+      return run(async (emit) => {
+        if (bubble) emit({ type: 'student', text });
+        if (!(await deliver(emit, undefined, action)) && bubble) emit({ type: 'discardStudent', text });
+      });
     },
     /** The written fallback: one request, no model. The answers join the thread once the server has taken them. */
     submitFallback: (answers: FallbackAnswers) => run(async (emit) => {
