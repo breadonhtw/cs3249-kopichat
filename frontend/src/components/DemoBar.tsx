@@ -1,4 +1,4 @@
-import { DEMO_LINES } from '../demoScript.ts';
+import { DEMO_LINES, RED_TEAM_LINES } from '../demoScript.ts';
 import type { Phase } from '../api/client.ts';
 import { reviewHref } from '../reviewLines.ts';
 
@@ -14,8 +14,9 @@ type Props = {
 };
 
 /**
- * The presenter's demo controls: restart, the five storyboard lines as one-press messages, and after sending, a link to
- * NUSSU's side in a new tab. Rendered in dev at laptop width only; a student never sees the reviewer view.
+ * The presenter's demo controls: restart, the five storyboard lines as one-press messages, the red-team lines for Q&A,
+ * and after sending, a link to NUSSU's side in a new tab. Rendered in dev at laptop width only; a student never sees the
+ * reviewer view.
  */
 export function DemoBar({ phase, busy, onRestart, onSend, reviewRef }: Props) {
   const canSend = phase === 'chat' && !busy;
@@ -29,6 +30,21 @@ export function DemoBar({ phase, busy, onRestart, onSend, reviewRef }: Props) {
           Line {i + 1}
         </button>
       ))}
+      <span className="demobar__group" role="group" aria-label="Red team">
+        <span className="demobar__label">Red team</span>
+        {RED_TEAM_LINES.map((line) => (
+          <button
+            key={line.label}
+            type="button"
+            className="demobar__btn demobar__btn--red"
+            disabled={!canSend}
+            title={`${line.text}\n\nExpect: ${line.expect}`}
+            onClick={() => onSend(line.text)}
+          >
+            {line.label}
+          </button>
+        ))}
+      </span>
       {reviewRef && (
         <a className="demobar__btn demobar__link" href={reviewHref(reviewRef)} target="_blank" rel="noopener" title="Or press n">
           See it on NUSSU's side

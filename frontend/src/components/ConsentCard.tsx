@@ -49,8 +49,9 @@ function Chevron() {
 
 /**
  * The consent moment, in the shape the TTC Labs guide calls total consent: the question first, the value, the facts
- * that matter most always visible, the rest one disclosure away, what declining means, and two answers of equal weight.
- * One affirmative button captures consent; there is no second confirmation.
+ * that matter most set as a printed notice, the rest one disclosure away, what declining means, and two answers of
+ * equal weight. One affirmative button captures consent; there is no second confirmation. On a phone it stacks in that
+ * order; at laptop width the notice stands beside the question and the answers align with its foot.
  */
 export function ConsentCard({ consultation, busy, onAgree }: Props) {
   const [declined, setDeclined] = useState(false);
@@ -63,44 +64,56 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
     );
   }
 
-  // The card shows "Why" and "Who can see" itself; the remaining rows sit under "More detail".
+  // The notice carries how findings are used and stopping; the other rows are on the notice's own lines.
   const more = consentRows(consultation.why, consultation.closing_date).filter(
     (row) => row.title !== 'Why NUSSU is asking' && row.title !== 'Who can see your responses',
   );
+  const closing = consultation.closing_date?.trim();
+  const closes = closing && !closing.startsWith('[') ? closing : null;
 
   return (
     <section className="card consent" aria-labelledby="consent-question">
-      <h1 id="consent-question" className="consent__question">{consentQuestion(consultation.title)}</h1>
-      <p className="body">{valueLine(consultation.why)} About five minutes.</p>
+      <div className="consent__side">
+      <div className="consent__head">
+        <h1 id="consent-question" className="consent__question">{consentQuestion(consultation.title)}</h1>
+        <p className="body">{valueLine(consultation.why)}</p>
+      </div>
 
-      <h2 className="consent__label">What you should know</h2>
-      <ul className="consent__facts">
-        <li>Kopichat is an AI and it asks up to 5 short follow-up questions. It may misunderstand you; you can correct it.</li>
-        <li>Your replies are read by an AI service and by NUSSU’s consultation team. No name or student ID is collected.</li>
-        <li>Nothing goes to NUSSU until you approve the summary.</li>
-      </ul>
-
-      <details className="row consent__more">
-        <summary className="row__summary">
-          <span>More detail</span>
-          <Chevron />
-        </summary>
-        <dl className="consent__detail">
-          {more.map((row) => (
-            <div key={row.title} className="consent__detail-row">
-              <dt>{row.title}</dt>
-              <dd>{row.body}</dd>
-            </div>
-          ))}
+      <div className="consent__answer">
+        <p className="note">{declineLine(consultation.closing_date)}</p>
+        <ActionPair
+          secondary={{ label: 'Not now', onClick: () => setDeclined(true) }}
+          primary={{ label: 'Yes, I’ll take part', onClick: onAgree, disabled: busy }}
+        />
+      </div>
+      </div>
+      <aside className="consent__notice" aria-label="The consultation">
+        <h2 className="consent__label">The consultation</h2>
+        <dl className="facts">
+          <div className="facts__row"><dt>Topic</dt><dd>{consultation.title}</dd></div>
+          <div className="facts__row"><dt>Asked by</dt><dd>NUSSU</dd></div>
+          {closes && <div className="facts__row"><dt>Closes</dt><dd>{closes}</dd></div>}
+          <div className="facts__row"><dt>Takes</dt><dd>5 min</dd></div>
+          <div className="facts__row"><dt>Questions</dt><dd>Up to 5 short follow-ups, usually fewer. Kopichat is an AI: it may misunderstand you, and you can correct it.</dd></div>
+          <div className="facts__row"><dt>Who reads it</dt><dd>NUSSU’s consultation team and an AI service. No name or student ID is collected.</dd></div>
+          <div className="facts__row"><dt>Sent</dt><dd>Only when you approve the summary. Nothing before that.</dd></div>
         </dl>
-      </details>
+        <details className="row consent__more">
+          <summary className="row__summary">
+            <span>More detail</span>
+            <Chevron />
+          </summary>
+          <dl className="consent__detail">
+            {more.map((row) => (
+              <div key={row.title} className="consent__detail-row">
+                <dt>{row.title}</dt>
+                <dd>{row.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      </aside>
 
-      <p className="note">{declineLine(consultation.closing_date)}</p>
-
-      <ActionPair
-        secondary={{ label: 'Not now', onClick: () => setDeclined(true) }}
-        primary={{ label: 'Yes, I’ll take part', onClick: onAgree, disabled: busy }}
-      />
     </section>
   );
 }
