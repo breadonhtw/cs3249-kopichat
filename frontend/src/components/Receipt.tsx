@@ -290,7 +290,7 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
 
         <details className="receipt__notice">
           <summary className="receipt__link">Data notice</summary>
-          {consentRows(consultation.why).map((row) => (
+          {consentRows(consultation.why, consultation.closing_date).map((row) => (
             <div key={row.title} className="receipt__notice-row">
               <h3>{row.title}</h3>
               <p>{row.body}</p>
