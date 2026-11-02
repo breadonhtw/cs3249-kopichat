@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countLine, drawnLine, groupFacts, pickGroup, refFromSearch, reviewHref, isReviewKey, splitQuote, repeatsOf, silentLine, tallyRows, groupFromSearch, searchWithGroup } from '../src/reviewLines.ts';
+import { countLine, drawnLine, groupFacts, groupsByTheme, pickGroup, refFromSearch, reviewHref, isReviewKey, splitQuote, repeatsOf, silentLine, tallyRows, groupFromSearch, searchWithGroup } from '../src/reviewLines.ts';
 import type { Strip } from '../src/api/client.ts';
 
 test('a count says how many of the group said something', () => {
@@ -97,4 +97,15 @@ test('n opens NUSSU side: a plain press only, not a held key or a shortcut', () 
   assert.equal(isReviewKey({ key: 'n', metaKey: true }), false);
   assert.equal(isReviewKey({ key: 'n', repeat: true }), false);
   assert.equal(isReviewKey({ key: 's' }), false);
+});
+
+test('the side nav folds groups by theme, keeping server order and totalling each theme', () => {
+  const g = (id: string, theme: string, count: number) => ({ id, name: id, theme, pending: false, count, has_art: false });
+  const sections = groupsByTheme([g('morning', 'transport', 2), g('access', 'transport', 1), g('frontier', 'food', 1), g('no-effect', 'transport', 1), g('clb', 'study', 1)]);
+  assert.deepEqual(sections.map((s) => [s.label, s.total, s.groups.map((x) => x.id)]), [
+    ['Transport', 4, ['morning', 'access', 'no-effect']],
+    ['Food court', 1, ['frontier']],
+    ['Study and teaching', 1, ['clb']],
+  ]);
+  assert.deepEqual(groupsByTheme([]), []);
 });

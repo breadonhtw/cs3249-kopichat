@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Consultation, ReviewGroup, Strip as StripData } from '../api/client.ts';
 import { client } from '../api/clientInstance.ts';
 import { reducedMotion } from '../motion.ts';
-import { groupFromSearch, pickGroup, refFromSearch, searchWithGroup } from '../reviewLines.ts';
-import { themeShort } from '../themeLabel.ts';
+import { groupFromSearch, pickGroup, refFromSearch, searchWithGroup, groupsByTheme } from '../reviewLines.ts';
 import { Strip } from './Strip.tsx';
 
 const NARROW = '(max-width: 1023.98px)'; // below this the group list sits above the strip, not beside it
@@ -106,23 +105,35 @@ export function Review() {
             <p className="review__meta">No accounts yet. Groups appear here once students send accounts and they are grouped.</p>
           ) : (
             <ul className="review__list">
-              {groups.map((g) => (
-                <li key={g.id}>
-                  <button
-                    type="button"
-                    className="review__group"
-                    aria-current={g.id === chosen ? 'true' : undefined}
-                    onClick={() => choose(g.id)}
-                  >
-                    <span className="review__group-text">
-                      <span className="review__group-name">{g.pending ? `${g.name} (pending)` : g.name}</span>
-                      <span className="review__group-meta">{themeShort(g.theme)}</span>
+              {groupsByTheme(groups).map((section) => (
+                <li key={section.theme} className="review__theme">
+                  <h2 className="review__theme-head" id={`theme-${section.theme}`}>
+                    <span className="review__theme-name">{section.label}</span>
+                    <span className="review__theme-count">
+                      {section.total}
+                      <span className="visually-hidden">{section.total === 1 ? ' account' : ' accounts'}</span>
                     </span>
-                    <span className="review__group-count">
-                      {g.count}
-                      <span className="visually-hidden">{g.count === 1 ? ' account' : ' accounts'}</span>
-                    </span>
-                  </button>
+                  </h2>
+                  <ul className="review__theme-groups" aria-labelledby={`theme-${section.theme}`}>
+                    {section.groups.map((g) => (
+                      <li key={g.id}>
+                        <button
+                          type="button"
+                          className="review__group"
+                          aria-current={g.id === chosen ? 'true' : undefined}
+                          onClick={() => choose(g.id)}
+                        >
+                          <span className="review__group-text">
+                            <span className="review__group-name">{g.pending ? `${g.name} (pending)` : g.name}</span>
+                          </span>
+                          <span className="review__group-count">
+                            {g.count}
+                            <span className="visually-hidden">{g.count === 1 ? ' account' : ' accounts'}</span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>

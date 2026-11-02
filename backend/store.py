@@ -265,11 +265,16 @@ class Store:
                              " ORDER BY created_at, id", (consultation_id,)).fetchall()
         return [dict(r) for r in rows]
 
-    def differing(self, consultation_id: str, exclude_group_id: str | None) -> list[dict]:
+    def differing(self, consultation_id: str, exclude_group_id: str | None, theme: str | None = None) -> list[dict]:
+        """Standalone and no-effect accounts outside one group, oldest first. With `theme`, only that theme's: a
+        reviewer of a food-court group is not shown transport accounts that say nothing about queues."""
+        sql = "SELECT * FROM accounts WHERE consultation_id = ? AND withdrawn = 0 AND group_id IS NOT ?"
+        params: list = [consultation_id, exclude_group_id]
+        if theme is not None:
+            sql += " AND theme = ?"
+            params.append(theme)
         with self._conn() as c:
-            rows = c.execute(
-                "SELECT * FROM accounts WHERE consultation_id = ? AND withdrawn = 0 AND group_id IS NOT ?"
-                " ORDER BY created_at, id", (consultation_id, exclude_group_id)).fetchall()
+            rows = c.execute(sql + " ORDER BY created_at, id", params).fetchall()
         out = []
         for r in rows:
             a = self._account(r)

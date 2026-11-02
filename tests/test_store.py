@@ -124,3 +124,9 @@ def test_init_does_not_reseed_and_reset_does(db):
     db.reset()
     assert db.counts(CID)["contributors"] == 6
     assert db.submit("s1", approved_state(), [])["id"] != a["id"]
+
+
+def test_differing_can_be_scoped_to_a_theme(db):
+    gid = db.group_id_for("Morning boarding at Kent Ridge MRT")
+    assert {d["id"] for d in db.differing(CID, gid, "transport")} == {"C", "D"}
+    assert db.differing(CID, gid, "food") == []

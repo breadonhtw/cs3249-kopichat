@@ -118,7 +118,7 @@ def test_build_without_group(db):
     assert agg["needs_review"] is True
     assert agg["coverage"]["how_often"] == {"said": 1, "of": 1}
     assert a["id"] not in {d["id"] for d in agg["differing"]}
-    assert {"C", "D"} <= {d["id"] for d in agg["differing"]}
+    assert agg["differing"] == []  # an account awaiting review has no theme to be compared within
     b = db.submit("s2", {**p.new_state("campus-visitors-2026"), "approved": True}, [])
     db.assign(b["id"], "other", None, True)
     assert A.build(db, b["id"])["coverage"]["how_often"] == {"said": 0, "of": 1}
@@ -184,3 +184,11 @@ def test_board_leaves_out_withdrawn_accounts_and_is_capped(db):
         other = db.submit(f"x{i}", {**p.new_state("campus-visitors-2026"), "approved": True}, [])
         db.assign(other["id"], "food", None, False)
     assert len(A.build(db, a["id"])["board"]) == A.BOARD_MAX
+
+
+def test_differing_accounts_are_scoped_to_the_students_theme(db):
+    a = _submit(db)
+    db.assign(a["id"], "food", "Lunch queue at Frontier", False)
+    agg = A.build(db, a["id"])
+    assert agg["differing"] == []  # the transport accounts C and D say nothing about queues
+    assert {b["id"] for b in agg["board"]} >= {"A", "B", "C", "D", "F"}  # they are still on the board, as other themes

@@ -119,15 +119,25 @@ def build(store: store_mod.Store, group_id: str, consultation_id: str = content.
         panels.append({"key": key, "title": title, "art": art.get(key) if spoken and key not in NO_ART else None,
                        "sections": built})
 
-    differing = [d for d in store.differing(consultation_id, exclude or "__none__")
+    # Accounts of the same theme that sit outside this group, so a count is never read as "everyone": the differing
+    # experience and the no-effect account stay beside the complaint. Other themes have their own groups in the list,
+    # so the panel is left out when the theme has nothing outside the group.
+    differing = [d for d in store.differing(consultation_id, exclude or "__none__", group["theme"])
                  if d["id"] not in {m["id"] for m in members}]
-    shown = art.get("differing")
-    panels.append({
-        "key": "differing", "title": "Outside this group",
-        "art": shown if shown and shown.get("shows") in {d["id"] for d in differing} else None,
-        "sections": [{"label": "Accounts that differ, kept visible",
-                      "said": [{"who": d.get("ref_code") or d["id"], "quote": d["excerpt"], "note": d["note"]}
-                               for d in differing],
-                      "count": {"said": len(differing), "of": None}}],
-    })
+    if differing:
+        shown = art.get("differing")
+        panels.append({
+            "key": "differing", "title": "Outside this group",
+            "art": shown if shown and shown.get("shows") in {d["id"] for d in differing} else None,
+            "sections": [{"label": f"Other accounts in {theme_name(group['theme'])}, kept visible",
+                          "said": [{"who": d.get("ref_code") or d["id"], "quote": d["excerpt"], "note": d["note"]}
+                                   for d in differing],
+                          "count": {"said": len(differing), "of": None}}],
+        })
     return {"group": {**group, "count": len(members)}, "cover": art.get("cover"), "panels": panels}
+
+
+def theme_name(key: str) -> str:
+    """The theme's name without its definition, lower-cased for a sentence: "transport access and crowding"."""
+    label = content.THEMES.get(key, content.THEMES["other"]).split(":", 1)[0].strip()
+    return label[:1].lower() + label[1:]

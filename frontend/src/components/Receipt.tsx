@@ -4,7 +4,7 @@ import { layoutBoard } from '../boardLayout.ts';
 import { consentRows } from '../copy.ts';
 import { applyEvent, MOMENT_START, momentEnd, momentTimeline, reducedMotion, type MomentState } from '../motion.ts';
 import { awaitingReview, denominatorLine, placementLines, youExcerptOf } from '../receiptLines.ts';
-import { themeLabel } from '../themeLabel.ts';
+import { themeLabel, themeShort } from '../themeLabel.ts';
 import { Board } from './Board.tsx';
 import { Counter } from './Counter.tsx';
 import { InlineConfirm } from './InlineConfirm.tsx';
@@ -176,7 +176,10 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
                   </li>
                 ))}
               </ul>
-              <p className="muted">These stay visible even when only one person said it.</p>
+              <p className="muted">
+                Other {themeShort(aggregate.theme).toLowerCase()} accounts that sit outside your group. These stay visible
+                even when only one person said it.
+              </p>
             </section>
           )}
         </>

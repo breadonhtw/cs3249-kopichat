@@ -66,6 +66,22 @@ def test_differing_accounts_are_kept_with_their_notes(db):
     assert {l["who"]: l["note"] for l in diff["said"]} == {
         "C": "a single account, kept visible", "D": "a student guide; no noticeable effect"}
     assert diff["count"] == {"said": 2, "of": None}
+    assert diff["label"] == "Other accounts in transport access and crowding, kept visible"
+
+
+def test_differing_panel_is_scoped_to_the_groups_theme_and_dropped_when_empty(db):
+    frontier = T.build(db, db.group_id_for("Lunch queue at Frontier"))
+    assert [x["key"] for x in frontier["panels"]] == ["what", "often", "effect", "read"]
+    study = T.build(db, db.group_id_for("Study space at CLB"))
+    assert "differing" not in {x["key"] for x in study["panels"]}
+    access = T.build(db, db.group_id_for("Access obstruction"))
+    assert {l["who"] for l in _panel(access, "differing")["sections"][0]["said"]} == {"D"}
+
+
+def test_theme_name_is_the_label_without_its_definition():
+    assert T.theme_name("transport") == "transport access and crowding"
+    assert T.theme_name("food") == "food-court access and congestion"
+    assert T.theme_name("nope") == "other"
 
 
 def test_a_live_account_is_named_by_its_reference_and_edits_and_skips_are_marked(db):

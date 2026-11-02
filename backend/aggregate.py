@@ -60,7 +60,8 @@ def build(store: store_mod.Store, account_id: str) -> dict:
     else:
         group = {"name": None, "pending": False, "count": 1, "others": []}
         coverage = {"said": 1 if _often_score(account) == 2 else 0, "of": 1}
-    differing = [d for d in store.differing(account["consultation_id"], group_id or _NO_GROUP)
+    # Only the student's own theme: a canteen account is not told about buses.
+    differing = [d for d in store.differing(account["consultation_id"], group_id or _NO_GROUP, account["theme"])
                  if d["id"] != account_id]
     # The rest of the board: accounts in neither the student's group nor the differing list.
     shown = {account_id, *(o["id"] for o in group["others"]), *(d["id"] for d in differing)}

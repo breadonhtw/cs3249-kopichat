@@ -1,4 +1,5 @@
 import type { ReviewGroup, Strip, StripLine, StripSection } from './api/client.ts';
+import { themeShort } from './themeLabel.ts';
 
 /** The count beside a caption: how many of the group said something here, or how many accounts outside it are kept. */
 export function countLine(count: StripSection['count']): string {
@@ -107,4 +108,26 @@ export function reviewHref(ref: string): string {
 /** The presenter's key for the jump: a plain press of `n` (any case), not held and not part of a shortcut. */
 export function isReviewKey(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; repeat?: boolean }): boolean {
   return e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
+}
+
+
+export type ThemeSection = { theme: string; label: string; total: number; groups: ReviewGroup[] };
+
+/**
+ * The group list folded by theme, for the reviewer's side nav. Themes keep the order of their first group (the server
+ * lists groups largest first, so the theme with the biggest group comes first); groups keep their order within a theme.
+ * `total` is the theme's accounts across its groups, the figure the heading shows.
+ */
+export function groupsByTheme(groups: ReviewGroup[]): ThemeSection[] {
+  const sections: ThemeSection[] = [];
+  for (const g of groups) {
+    let section = sections.find((s) => s.theme === g.theme);
+    if (!section) {
+      section = { theme: g.theme, label: themeShort(g.theme), total: 0, groups: [] };
+      sections.push(section);
+    }
+    section.groups.push(g);
+    section.total += g.count;
+  }
+  return sections;
 }
