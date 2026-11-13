@@ -335,7 +335,12 @@ def form_withdraw(body: SessionBody):
 @app.get("/api/review/groups")
 def review_groups(topic: str | None = Query(default=None)):
     consultation = content.consultation_for_topic(topic)
-    return {"consultation": consultation, "groups": strip.groups(STORE, consultation["id"])}
+    counts = STORE.counts(consultation["id"])
+    # The reviewer is told the period, how students were reached and how many accounts are fictional seeds. The
+    # numbers are counted from the store: accounts still in the consultation, withdrawn ones left out.
+    context = {**content.REVIEW_CONTEXT, "closes": consultation["closing_date"],
+               "accounts": counts["contributors"], "seeds": counts["seeds"]}
+    return {"consultation": consultation, "groups": strip.groups(STORE, consultation["id"]), "context": context}
 
 
 @app.get("/api/review/locate/{ref_code}")

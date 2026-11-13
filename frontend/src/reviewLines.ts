@@ -1,4 +1,4 @@
-import type { ReviewGroup, Strip, StripLine, StripSection } from './api/client.ts';
+import type { ReviewContext, ReviewGroup, Strip, StripLine, StripSection } from './api/client.ts';
 import { themeShort } from './themeLabel.ts';
 
 /** The count beside a caption: how many of the group said something here, or how many accounts outside it are kept. */
@@ -138,4 +138,44 @@ export function groupsSummary(groups: ReviewGroup[]): string {
   const a = accounts === 1 ? '1 account' : `${accounts} accounts`;
   const g = groups.length === 1 ? '1 group' : `${groups.length} groups`;
   return `${a} in ${g}`;
+}
+
+/**
+ * What the reviewer page's numbers count, in the unit the code counts them in. An account is a stored row of the
+ * chat: one per approved submission, with no identity, so two accounts may be one student. Group counts and
+ * "n of m said" leave withdrawn accounts out and keep private ones in (backend/store.py, backend/strip.py).
+ */
+export const COUNT_NOTES: { term: string; body: string }[] = [
+  {
+    term: 'An account',
+    body: 'One approved submission from the chat. No name or student ID is collected, so the app cannot tell whether two accounts come from the same student. Every count here is of accounts, not of students.',
+  },
+  {
+    term: 'A group’s number',
+    body: 'The accounts filed in that group. Withdrawn accounts are left out. Accounts marked private are counted and quoted here; they are only kept off the student noticeboard.',
+  },
+  {
+    term: '“2 of 3 said”',
+    body: '2 of the group’s 3 accounts gave something for that part. An account that said there was none, such as no effect, counts as having said something. A part that was skipped or never answered does not.',
+  },
+];
+
+/** The line over a strip's tally: what its figures are out of. */
+export function tallyCaption(count: number): string {
+  const of = count === 1 ? 'the 1 account' : `the ${count} accounts`;
+  return `How many of ${of} in this group gave something for each part:`;
+}
+
+/** The consultation period as the app knows it. An opening date that was never recorded is said to be missing. */
+export function periodLine(context: Pick<ReviewContext, 'opens' | 'closes' | 'closes_note'>): string {
+  const opens = context.opens ? `Opened ${context.opens}.` : 'No opening date is recorded.';
+  const note = context.closes_note ? ` (${context.closes_note})` : '';
+  return `${opens} Closes ${context.closes}${note}.`;
+}
+
+/** How many of the consultation's accounts are fictional seeds, and how many came through the chat. */
+export function seedsLine(context: Pick<ReviewContext, 'accounts' | 'seeds'>): string {
+  const sent = Math.max(0, context.accounts - context.seeds);
+  const total = context.accounts === 1 ? '1 account' : `${context.accounts} accounts`;
+  return `${total} in all: ${context.seeds} fictional ${context.seeds === 1 ? 'seed' : 'seeds'}, ${sent} sent through the chat.`;
 }

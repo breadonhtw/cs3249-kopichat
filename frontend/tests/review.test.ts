@@ -115,3 +115,22 @@ test('the register head sums the accounts and counts the groups', () => {
   assert.equal(groupsSummary([g('a', 2), g('b', 1), g('c', 1), g('d', 1), g('e', 1)]), '6 accounts in 5 groups');
   assert.equal(groupsSummary([g('a', 1)]), '1 account in 1 group');
 });
+
+test('the page says what its counts count, in accounts and never in students', async () => {
+  const { COUNT_NOTES, tallyCaption } = await import('../src/reviewLines.ts');
+  assert.deepEqual(COUNT_NOTES.map((n) => n.term), ['An account', 'A group’s number', '“2 of 3 said”']);
+  assert.match(COUNT_NOTES[0]!.body, /cannot tell whether two accounts come from the same student/);
+  assert.match(COUNT_NOTES[1]!.body, /Withdrawn accounts are left out\. Accounts marked private are counted/);
+  assert.match(COUNT_NOTES[2]!.body, /said there was none.*counts as having said something/);
+  assert.equal(tallyCaption(3), 'How many of the 3 accounts in this group gave something for each part:');
+  assert.equal(tallyCaption(1), 'How many of the 1 account in this group gave something for each part:');
+});
+
+test('the consultation period and seed count are stated as the app knows them', async () => {
+  const { periodLine, seedsLine } = await import('../src/reviewLines.ts');
+  const simulated = { opens: null, closes: '30 November 2026', closes_note: 'a placeholder: NUSSU has not set a closing date' };
+  assert.equal(periodLine(simulated), 'No opening date is recorded. Closes 30 November 2026 (a placeholder: NUSSU has not set a closing date).');
+  assert.equal(periodLine({ opens: '2 November 2026', closes: '30 November 2026', closes_note: null }), 'Opened 2 November 2026. Closes 30 November 2026.');
+  assert.equal(seedsLine({ accounts: 6, seeds: 6 }), '6 accounts in all: 6 fictional seeds, 0 sent through the chat.');
+  assert.equal(seedsLine({ accounts: 8, seeds: 6 }), '8 accounts in all: 6 fictional seeds, 2 sent through the chat.');
+});

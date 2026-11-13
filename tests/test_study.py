@@ -251,3 +251,24 @@ def test_export_keeps_a_chat_only_row_when_it_holds_text():
             {"key": "feeling", "text": "", "status": "not_given"}, {"key": "effect", "text": "none", "status": "explicit_none"}]
     text = export.render("S-TEST1", STUDY, rows)
     assert "What you saw\nbags on seats" in text and "Feeling" not in text and "Effect on you\nnone" in text
+
+
+# --- the reviewer view says where its accounts came from ---------------------------------
+
+def test_reviewer_context_is_truthful_about_a_simulated_consultation(client):
+    for topic in ("visitors", "study"):
+        ctx = client.get("/api/review/groups", params={"topic": topic}).json()["context"]
+        assert ctx["opens"] is None and ctx["closes"] == content.CLOSING_DATE and "placeholder" in ctx["closes_note"]
+        assert ctx["reach"].startswith("Simulated consultation.") and "not sent out" in ctx["reach"]
+        assert (ctx["accounts"], ctx["seeds"]) == (6, 6)
+
+
+def test_reviewer_counts_include_private_accounts_and_leave_out_withdrawn_ones(client):
+    from backend import app as a
+    _chat_submit(client, "one")                       # private by default
+    _chat_submit(client, "two", what="Second one")
+    client.post("/api/withdraw", json={"session_id": "two"})
+    out = client.get("/api/review/groups").json()
+    assert (out["context"]["accounts"], out["context"]["seeds"]) == (7, 6)
+    assert sum(g["count"] for g in out["groups"]) == 7
+    assert "context" not in client.post("/api/session", json={"session_id": "s"}).json()["consultation"]

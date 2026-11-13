@@ -1,5 +1,5 @@
 import type { Strip as StripData, StripLine, StripSection } from '../api/client.ts';
-import { countLine, drawnLine, groupFacts, repeatsOf, silentLine, splitQuote, tallyRows } from '../reviewLines.ts';
+import { countLine, drawnLine, groupFacts, repeatsOf, silentLine, splitQuote, tallyCaption, tallyRows } from '../reviewLines.ts';
 
 function Line({ line, isNew, repeats }: { line: StripLine; isNew: boolean; repeats: string | undefined }) {
   const quote = line.quote ? splitQuote(line.quote) : null;
@@ -58,6 +58,7 @@ export function Strip({ strip, highlight = null, stale = false }: { strip: Strip
           <p className="strip__meta">{groupFacts(strip.group)}</p>
           {marked && <p className="strip__new">New: {highlight}. Its lines are marked.</p>}
           {!illustrated && <p className="strip__meta">No illustrations yet for this group. The captions are the record.</p>}
+          <p className="strip__meta">{tallyCaption(strip.group.count)}</p>
           <ul className="tally" aria-label="Who in the group said something, part by part">
             {tallyRows(strip).map((row) => (
               <li key={row.label}>

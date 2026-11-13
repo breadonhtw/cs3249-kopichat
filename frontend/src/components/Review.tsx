@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Consultation, ReviewGroup, Strip as StripData } from '../api/client.ts';
+import type { Consultation, ReviewContext, ReviewGroup, Strip as StripData } from '../api/client.ts';
 import { client } from '../api/clientInstance.ts';
 import { reducedMotion } from '../motion.ts';
-import { groupFromSearch, pickGroup, refFromSearch, searchWithGroup, groupsByTheme, groupsSummary } from '../reviewLines.ts';
+import { COUNT_NOTES, groupFromSearch, periodLine, pickGroup, refFromSearch, searchWithGroup, seedsLine, groupsByTheme, groupsSummary } from '../reviewLines.ts';
 import { Strip } from './Strip.tsx';
 
 const NARROW = '(max-width: 1023.98px)'; // below this the group list sits above the strip, not beside it
@@ -11,6 +11,7 @@ const NARROW = '(max-width: 1023.98px)'; // below this the group list sits above
 export function Review() {
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [groups, setGroups] = useState<ReviewGroup[] | null>(null);
+  const [context, setContext] = useState<ReviewContext | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [strip, setStrip] = useState<StripData | null>(null);
   const [error, setError] = useState<{ what: 'groups' | 'strip'; detail: string } | null>(null);
@@ -28,6 +29,7 @@ export function Review() {
         setError(null);
         setConsultation(body.consultation);
         setGroups(body.groups);
+        setContext(body.context ?? null);
         setMissing(ref !== null && groupId === null);
         // The group chosen last wins over the jump's, so a reload stays where the reviewer was.
         const ids = body.groups.map((g) => g.id);
@@ -84,6 +86,26 @@ export function Review() {
         <p className="review__meta">
           Groups are provisional. Every caption is a student's own words with who said it; the pictures only illustrate.
         </p>
+        <div className="review__about">
+          {context && (
+            <section aria-labelledby="review-context">
+              <h2 id="review-context" className="review__about-title">This consultation</h2>
+              <dl className="facts">
+                <div className="facts__row"><dt>Period</dt><dd>{periodLine(context)}</dd></div>
+                <div className="facts__row"><dt>How students were reached</dt><dd>{context.reach}</dd></div>
+                <div className="facts__row"><dt>Accounts</dt><dd>{seedsLine(context)}</dd></div>
+              </dl>
+            </section>
+          )}
+          <section aria-labelledby="review-counts">
+            <h2 id="review-counts" className="review__about-title">What the counts count</h2>
+            <dl className="facts">
+              {COUNT_NOTES.map((note) => (
+                <div key={note.term} className="facts__row"><dt>{note.term}</dt><dd>{note.body}</dd></div>
+              ))}
+            </dl>
+          </section>
+        </div>
       </header>
 
       {error && (

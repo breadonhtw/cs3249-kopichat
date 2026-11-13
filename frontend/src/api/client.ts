@@ -92,6 +92,17 @@ export type SubmitResult = { account: { id: string; ref_code: string }; aggregat
 /** NUSSU reviewer view: one group in the list. `id` is "ungrouped" for the accounts no group holds yet. */
 export type ReviewGroup = { id: string; name: string; theme: string; pending: boolean; count: number; has_art: boolean };
 
+/** Where a consultation's accounts came from, for the reviewer page's head. Older servers leave it out. */
+export type ReviewContext = {
+  opens: string | null;
+  closes: string;
+  closes_note: string | null;
+  reach: string;
+  /** Accounts still in the consultation (withdrawn ones left out), and how many of them are fictional seeds. */
+  accounts: number;
+  seeds: number;
+};
+
 /** One caption line: a stored field quoted as the student left it, or why there is no quote. */
 export type StripLine = { who: string; quote: string | null; note: string | null };
 export type StripSection = { label: string | null; said: StripLine[]; count: { said: number; of: number | null } };
@@ -236,7 +247,7 @@ export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: 
       post<SubmitResult>('/api/submit', visibility === undefined ? { approved: true } : { approved: true, visibility }),
     withdraw: () => post<{ ok: true }>('/api/withdraw', {}),
     contact: (contact: string) => post<{ ok: true }>('/api/contact', { contact }),
-    reviewGroups: () => send<{ consultation: Consultation; groups: ReviewGroup[] }>('GET', `/api/review/groups${topicQuery}`),
+    reviewGroups: () => send<{ consultation: Consultation; groups: ReviewGroup[]; context?: ReviewContext }>('GET', `/api/review/groups${topicQuery}`),
     reviewStrip: (groupId: string) => send<Strip>('GET', `/api/review/strip/${encodeURIComponent(groupId)}${topicQuery}`),
     reviewLocate: (ref: string) => send<{ ref: string; group_id: string }>('GET', `/api/review/locate/${encodeURIComponent(ref)}`),
     /** The demo reset: restores the seed accounts and clears every session. Only the demo bar may call this. */

@@ -51,6 +51,16 @@ def consultation_for_topic(topic: str | None) -> dict:
     return CONSULTATION
 
 
+# What NUSSU's reviewer view says about where the accounts came from. Both consultations are simulated, so this says
+# so: there is no opening date on record, the closing date is a placeholder, and the link was never sent out.
+REVIEW_CONTEXT = {
+    "opens": None,
+    "closes_note": "a placeholder: NUSSU has not set a closing date",
+    "reach": ("Simulated consultation. The link was not sent out to students. Accounts named by a letter are fictional"
+              " seeds written by the project team. Accounts with a KR reference were sent by study participants and"
+              " testers the project team gave the link to directly."),
+}
+
 # Said on the consent screen of the chat and of the form, in the same words.
 INVITATION = "Good, bad, no-effect and not-sure experiences are all welcome."
 
