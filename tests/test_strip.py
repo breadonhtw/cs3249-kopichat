@@ -16,8 +16,8 @@ def _panel(strip, key):
     return next(x for x in strip["panels"] if x["key"] == key)
 
 
-def _submit(db, sid="s1", fields=None, group=MORNING):
-    st = p.new_state("campus-visitors-2026"); st["approved"] = True
+def _submit(db, sid="s1", fields=None, group=MORNING, visibility="board"):
+    st = p.new_state("campus-visitors-2026"); st["approved"] = True; st["visibility"] = visibility
     a = db.submit(sid, st, fields or [
         {"key": "what", "label": "What happened", "text": "Couldn't get onto the first A2", "status": "quoted"},
         {"key": "often", "label": "How often", "text": "3 times in the last 2 weeks", "status": "edited"},

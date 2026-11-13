@@ -123,7 +123,7 @@ export function App() {
                 error={state.error}
                 onEdit={(key, text) => void session.edit(key, text)}
                 onBack={() => setLookingBack(true)}
-                onApprove={() => void session.approve()}
+                onApprove={(visibility) => void session.approve(visibility)}
                 onRetry={() => void session.loadSummary()}
               />
             ) : onChat ? (

@@ -20,6 +20,26 @@
     {
       "theme": "study",
       "name": "Study space at CLB"
+    },
+    {
+      "theme": "seats",
+      "name": "No seats at Central Library by late morning"
+    },
+    {
+      "theme": "seats",
+      "name": "Seats held with belongings"
+    },
+    {
+      "theme": "hours",
+      "name": "Study rooms close before students are done"
+    },
+    {
+      "theme": "conditions",
+      "name": "Cold or noisy study rooms"
+    },
+    {
+      "theme": "seats",
+      "name": "Found a seat without trouble"
     }
   ],
   "accounts": [
@@ -552,6 +572,536 @@
       "is_seed": true,
       "standalone": false,
       "transcript": []
+    },
+    {
+      "id": "G",
+      "theme": "seats",
+      "group": "No seats at Central Library by late morning",
+      "excerpt": "No seat on any floor of CLB at 11am, Tuesday of reading week",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "Walked every floor of CLB at about 11am on the Tuesday of reading week and found no free seat",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "three days out of five that week",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "lost about 40 minutes before I gave up and went back to hall",
+          "status": "quoted"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "Experienced it yourself",
+          "status": "quoted"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "study-spaces-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "H",
+      "theme": "seats",
+      "group": "No seats at Central Library by late morning",
+      "excerpt": "CLB level 5 full by 10.30am, twice in reading week",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "CLB level 5 was full when I got there around 10.30am",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "twice in reading week",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "ended up studying at a canteen table instead",
+          "status": "quoted"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "Experienced it yourself",
+          "status": "quoted"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "show how full each floor is before we walk up",
+          "status": "quoted"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 1,
+          "state": "provided"
+        }
+      },
+      "consultation_id": "study-spaces-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "I",
+      "theme": "seats",
+      "group": "Seats held with belongings",
+      "excerpt": "Rows of Science Library seats held by bags, nobody there",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "Whole rows in the Science Library had bags and laptops on them but nobody sitting there",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "most afternoons in exam week",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "the same bags were still there two hours later",
+          "status": "quoted"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "I think people leave their things and go for lunch",
+          "status": "quoted"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "Saw it yourself",
+          "status": "quoted"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 0,
+          "state": "not_asked"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "study-spaces-2026",
+      "is_seed": true,
+      "standalone": true,
+      "transcript": [],
+      "note": "a single account, kept visible"
+    },
+    {
+      "id": "J",
+      "theme": "hours",
+      "group": "Study rooms close before students are done",
+      "excerpt": "Asked to leave the UTown study room at 9pm before a paper",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "Was asked to leave the study room at UTown at 9pm the night before my paper",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "once",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "had to finish revising in my room, which I share",
+          "status": "quoted"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "Experienced it yourself",
+          "status": "quoted"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "keep one room open until midnight in exam weeks",
+          "status": "quoted"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 2,
+          "state": "provided"
+        }
+      },
+      "consultation_id": "study-spaces-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "K",
+      "theme": "conditions",
+      "group": "Cold or noisy study rooms",
+      "excerpt": "Study room at the Medicine library too cold to sit in long",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "The study room at the Medicine library was too cold to sit in for more than an hour",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "every time I went in reading week, four times",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "kept moving out to the corridor to warm up",
+          "status": "quoted"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "Experienced it yourself",
+          "status": "quoted"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "quite sian",
+          "status": "quoted"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 1,
+          "state": "provided"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "study-spaces-2026",
+      "is_seed": true,
+      "standalone": false,
+      "transcript": []
+    },
+    {
+      "id": "L",
+      "theme": "seats",
+      "group": "Found a seat without trouble",
+      "excerpt": "Got a seat at the Engineering study area each morning",
+      "fields": [
+        {
+          "key": "overall",
+          "label": "Overall view",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "what",
+          "label": "What happened",
+          "text": "Got a seat at the Engineering study area each morning at about 9am",
+          "status": "quoted"
+        },
+        {
+          "key": "often",
+          "label": "How often",
+          "text": "every weekday of reading week",
+          "status": "quoted"
+        },
+        {
+          "key": "effect",
+          "label": "Effect on you",
+          "text": "no effect on me",
+          "status": "explicit_none"
+        },
+        {
+          "key": "saw",
+          "label": "What you saw",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "cause",
+          "label": "Your read on the cause (your interpretation, not a finding)",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "basis",
+          "label": "How you know",
+          "text": "Experienced it yourself",
+          "status": "quoted"
+        },
+        {
+          "key": "suggestion",
+          "label": "Suggestion",
+          "text": "",
+          "status": "not_given"
+        },
+        {
+          "key": "feeling",
+          "label": "Feeling, in your words",
+          "text": "",
+          "status": "not_given"
+        }
+      ],
+      "scores": {
+        "q1_what": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q2_often": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q3_effect": {
+          "score": 0,
+          "state": "explicit_none"
+        },
+        "q4_basis": {
+          "score": 2,
+          "state": "provided"
+        },
+        "q5_better": {
+          "score": 0,
+          "state": "not_asked"
+        }
+      },
+      "consultation_id": "study-spaces-2026",
+      "is_seed": true,
+      "standalone": true,
+      "transcript": [],
+      "note": "found a seat each time; no noticeable effect"
     }
   ]
 }

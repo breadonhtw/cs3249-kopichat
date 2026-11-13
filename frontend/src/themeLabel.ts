@@ -4,6 +4,9 @@ const LABELS: Record<string, string> = {
   study: 'Disruption of study and teaching',
   access: 'Accessibility and physical obstruction',
   privacy: 'Privacy and personal boundaries',
+  seats: 'Finding a seat',
+  hours: 'Opening hours and access',
+  conditions: 'Conditions in the space',
   other: 'Other',
   needs_review: 'Needs review',
 };
@@ -19,6 +22,9 @@ const SHORT: Record<string, string> = {
   study: 'Study and teaching',
   access: 'Accessibility',
   privacy: 'Privacy',
+  seats: 'Seats',
+  hours: 'Opening hours',
+  conditions: 'Conditions',
   other: 'Other',
   needs_review: 'Needs review',
 };

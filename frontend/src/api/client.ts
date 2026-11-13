@@ -28,7 +28,15 @@ export type Consultation = {
   why: string;
   closing_date: string;
   overall_options: string[];
+  /** The short name a link carries (?topic=study). Older servers leave it out. */
+  topic?: string;
+  /** The overall question in this consultation's words. Older servers leave it out. */
+  overall_question?: string;
 };
+
+/** Who sees an approved account's words: NUSSU's team only, or also other students on the noticeboard. */
+export type Visibility = 'nussu' | 'board';
+export const DEFAULT_VISIBILITY: Visibility = 'nussu';
 
 /** A session that has already sent its account also carries what the receipt needs. */
 export type SessionInfo = {
@@ -61,6 +69,8 @@ export type SummaryRow = {
 export type Aggregate = {
   provisional: true;
   theme: string;
+  /** The student's own choice, said back on the receipt. Older servers leave it out. */
+  visibility?: Visibility;
   /** The account is waiting for a reviewer: classification was unsure or fell back. */
   needs_review?: boolean;
   /** `pending`: a new group a reviewer has not named yet; its name reads "New group, pending review". */
@@ -120,25 +130,54 @@ export function chipAction(label: string): string | null {
 
 const SESSION_KEY = 'kopichat.session';
 
+/** What the link asked for: which consultation (?topic=study) and, in the user study, a participant code (?p=P03). */
+export type Link = { topic: string | null; participant: string | null };
+
+export function linkFrom(search: string): Link {
+  const params = new URLSearchParams(search);
+  const clean = (value: string | null) => (value ?? '').trim() || null;
+  return { topic: clean(params.get('topic')), participant: clean(params.get('p')) };
+}
+
+/** The link this page was opened with. Outside a browser there is none. */
+export function currentLink(): Link {
+  return linkFrom(typeof globalThis.location === 'object' ? globalThis.location.search : '');
+}
+
+/** Where a session id is kept. A link with a topic or a participant code gets its own session, so one phone can open
+ * both consultations, and a second participant on the same phone never lands on the first one's receipt. */
+export function sessionKey(base: string, link: Link): string {
+  if (link.topic === null && link.participant === null) return base;
+  return `${base}.${link.topic ?? ''}.${link.participant ?? ''}`;
+}
+
+/** A random id. `crypto.randomUUID` exists only on https and localhost; a phone that opens the app at the laptop's
+ * address over plain http still has `getRandomValues`, so the id is built from that. */
+export function newId(c: Pick<Crypto, 'getRandomValues'> & { randomUUID?: () => string } = globalThis.crypto): string {
+  if (typeof c.randomUUID === 'function') return c.randomUUID();
+  const bytes = c.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /** A new session id, remembered for this tab when storage allows. */
-function freshSessionId(): string {
-  const fresh = crypto.randomUUID();
+export function freshSessionId(key: string = sessionKey(SESSION_KEY, currentLink())): string {
+  const fresh = newId();
   try {
-    globalThis.sessionStorage?.setItem(SESSION_KEY, fresh);
+    globalThis.sessionStorage?.setItem(key, fresh);
   } catch {
     // storage blocked: the id lives in memory only
   }
   return fresh;
 }
 
-function storedSessionId(): string {
+export function storedSessionId(key: string = sessionKey(SESSION_KEY, currentLink())): string {
   try {
-    const existing = globalThis.sessionStorage?.getItem(SESSION_KEY);
+    const existing = globalThis.sessionStorage?.getItem(key);
     if (existing) return existing;
   } catch {
     // storage blocked: fall through to a fresh id
   }
-  return freshSessionId();
+  return freshSessionId(key);
 }
 
 async function failureMessage(res: Response): Promise<string> {
@@ -151,8 +190,13 @@ async function failureMessage(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: string = storedSessionId()) {
+export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: string = storedSessionId(), link: Link = currentLink()) {
   let sessionId = initialSessionId;
+  const topicQuery = link.topic === null ? '' : `?topic=${encodeURIComponent(link.topic)}`;
+  // Sent only when the link carried them, so a plain link makes the same request as before.
+  const opening: Record<string, unknown> = {};
+  if (link.topic !== null) opening.topic = link.topic;
+  if (link.participant !== null) opening.participant = link.participant;
   async function send<T>(method: string, url: string, body?: Record<string, unknown>): Promise<T> {
     const init: RequestInit = { method };
     if (body) {
@@ -174,7 +218,7 @@ export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: 
     renew: (next: string = freshSessionId()) => {
       sessionId = next;
     },
-    session: () => post<SessionInfo>('/api/session', {}),
+    session: () => post<SessionInfo>('/api/session', opening),
     consent: () => post<{ phase: Phase; state: ServerState }>('/api/consent', { agreed: true }),
     overall: (value: string | null) => post<TurnResult>('/api/overall', { value }),
     turn(message?: string, action?: string) {
@@ -188,13 +232,51 @@ export function createClient(fetchImpl: typeof fetch = fetch, initialSessionId: 
     summary: () => send<{ rows: SummaryRow[]; approved: boolean }>('GET', summaryUrl()),
     editSummary: (key: string, text: string) => send<{ rows: SummaryRow[] }>('PATCH', summaryUrl(), { key, text }),
     // Only the summary screen's approve handler may call this.
-    submit: () => post<SubmitResult>('/api/submit', { approved: true }),
+    submit: (visibility?: Visibility) =>
+      post<SubmitResult>('/api/submit', visibility === undefined ? { approved: true } : { approved: true, visibility }),
     withdraw: () => post<{ ok: true }>('/api/withdraw', {}),
     contact: (contact: string) => post<{ ok: true }>('/api/contact', { contact }),
-    reviewGroups: () => send<{ consultation: Consultation; groups: ReviewGroup[] }>('GET', '/api/review/groups'),
-    reviewStrip: (groupId: string) => send<Strip>('GET', `/api/review/strip/${encodeURIComponent(groupId)}`),
+    reviewGroups: () => send<{ consultation: Consultation; groups: ReviewGroup[] }>('GET', `/api/review/groups${topicQuery}`),
+    reviewStrip: (groupId: string) => send<Strip>('GET', `/api/review/strip/${encodeURIComponent(groupId)}${topicQuery}`),
     reviewLocate: (ref: string) => send<{ ref: string; group_id: string }>('GET', `/api/review/locate/${encodeURIComponent(ref)}`),
     /** The demo reset: restores the seed accounts and clears every session. Only the demo bar may call this. */
     reset: () => post<{ ok: true }>('/api/admin/reset', {}),
+  };
+}
+
+// --- The matched form (user study): the same consultation and questions as fixed fields, with no model. ---
+
+export type FormField = { dim: string; key: string; label: string; hint: string };
+export type FormSent = { ref_code: string; rows: SummaryRow[]; withdrawn: boolean };
+export type FormInfo = { consultation: Consultation; fields: FormField[]; submission?: FormSent };
+export type FormSubmission = { overall: string | null; answers: Record<string, string>; edited: string[] };
+
+const FORM_SESSION_KEY = 'kopichat.form';
+
+export function createFormClient(
+  fetchImpl: typeof fetch = fetch,
+  link: Link = currentLink(),
+  sessionId: string = storedSessionId(sessionKey(FORM_SESSION_KEY, link)),
+) {
+  async function post<T>(url: string, body: Record<string, unknown>): Promise<T> {
+    const res = await fetchImpl(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, ...body }),
+    });
+    if (!res.ok) throw new ApiError(res.status, await failureMessage(res));
+    return (await res.json()) as T;
+  }
+  const opening: Record<string, unknown> = {};
+  if (link.topic !== null) opening.topic = link.topic;
+  if (link.participant !== null) opening.participant = link.participant;
+
+  return {
+    sessionId,
+    /** Opens the form: the server notes the time once, and returns what was already sent if this session sent one. */
+    open: () => post<FormInfo>('/api/form/open', opening),
+    // Only the review page's Submit may call this.
+    submit: (s: FormSubmission) => post<FormSent>('/api/form/submit', { confirmed: true, ...s }),
+    withdraw: () => post<{ ok: true }>('/api/form/withdraw', {}),
   };
 }

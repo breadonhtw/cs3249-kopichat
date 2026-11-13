@@ -94,7 +94,7 @@ def test_consultation_shape():
     assert c.CONSULTATION["id"] == "campus-visitors-2026"
     assert c.CONSULTATION["title"] == "Campus visitors and student experience"
     assert c.CONSULTATION["why"] == "To understand how visitor presence on campus is affecting students' day-to-day experience."
-    assert c.CONSULTATION["closing_date"] == "12 November 2026"
+    assert c.CONSULTATION["closing_date"] == "30 November 2026"
     assert c.CONSULTATION["overall_options"] == ["Positively", "Negatively", "Mixed", "No noticeable effect"]  # Skip covers "not sure"
 
 

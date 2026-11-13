@@ -6,6 +6,7 @@ illustrate. The cause panel never has art: a picture would state a cause the acc
 """
 from . import content, store as store_mod
 
+PRIVATE_NOTE = "private: for NUSSU only"
 UNGROUPED = "ungrouped"
 UNGROUPED_NAME = "Not grouped yet"
 
@@ -68,8 +69,10 @@ def _line(account: dict, key: str) -> dict:
     text, status = (field.get("text") or "").strip(), field.get("status", "not_given")
     who = _who(account)
     if text and status in ("quoted", "edited", "explicit_none"):
-        note = {"edited": "edited by the student before sending", "explicit_none": "said there was none"}.get(status)
-        return {"who": who, "quote": text, "note": note}
+        notes = [{"edited": "edited by the student before sending", "explicit_none": "said there was none"}.get(status),
+                 # NUSSU reads every account; this one's writer asked that other students not be shown its words.
+                 PRIVATE_NOTE if account.get("visibility") == "nussu" else None]
+        return {"who": who, "quote": text, "note": "; ".join(n for n in notes if n) or None}
     return {"who": who, "quote": None, "note": "skipped" if status == "skipped" else "not said"}
 
 
@@ -96,8 +99,10 @@ def locate(store: store_mod.Store, ref_code: str) -> str | None:
     return account["group_id"] or UNGROUPED
 
 
-def build(store: store_mod.Store, group_id: str, consultation_id: str = content.CONSULTATION["id"]) -> dict | None:
-    """The strip for one group, or for the ungrouped accounts. None when the group does not exist."""
+def build(store: store_mod.Store, group_id: str, consultation_id: str | None = None) -> dict | None:
+    """The strip for one group, or for the ungrouped accounts of a consultation. None when the group does not exist.
+    A group belongs to the consultation its accounts were sent to."""
+    consultation_id = consultation_id or content.CONSULTATION["id"]
     if group_id == UNGROUPED:
         members = store.ungrouped(consultation_id)
         group = {"id": UNGROUPED, "name": UNGROUPED_NAME, "theme": "needs_review", "pending": False}
@@ -107,6 +112,8 @@ def build(store: store_mod.Store, group_id: str, consultation_id: str = content.
         if info is None:
             return None
         members = store.group_members(group_id)
+        if members:
+            consultation_id = members[0]["consultation_id"]
         group = {"id": group_id, "name": info["name"], "theme": info["theme"], "pending": info["pending"]}
         exclude = group_id
     art = ART.get(group["name"], {})
@@ -139,5 +146,5 @@ def build(store: store_mod.Store, group_id: str, consultation_id: str = content.
 
 def theme_name(key: str) -> str:
     """The theme's name without its definition, lower-cased for a sentence: "transport access and crowding"."""
-    label = content.THEMES.get(key, content.THEMES["other"]).split(":", 1)[0].strip()
+    label = content.ALL_THEMES.get(key, content.THEMES["other"]).split(":", 1)[0].strip()
     return label[:1].lower() + label[1:]

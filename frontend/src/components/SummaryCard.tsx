@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SummaryRow } from '../api/client.ts';
+import { DEFAULT_VISIBILITY, type SummaryRow, type Visibility } from '../api/client.ts';
 import { ActionPair } from './ActionPair.tsx';
 import { SummaryRowEdit } from './SummaryRowEdit.tsx';
 
@@ -19,19 +19,27 @@ export function rowDisplay(row: SummaryRow): Display {
   }
 }
 
+/** The two answers to "Who may see your words?", in the order shown. The first is the default. */
+export const VISIBILITY_CHOICES: { value: Visibility; label: string }[] = [
+  { value: 'nussu', label: 'NUSSU’s consultation team only' },
+  { value: 'board', label: 'NUSSU’s team and other students' },
+];
+
 type Props = {
   rows: SummaryRow[];
   busy: boolean;
   error: string | null;
   onEdit: (key: string, text: string) => void;
   onBack: () => void;
-  onApprove: () => void;
+  /** Approve and send, with the student's choice of who may see their words. */
+  onApprove: (visibility: Visibility) => void;
   onRetry: () => void;
 };
 
 export function SummaryCard({ rows, busy, error, onEdit, onBack, onApprove, onRetry }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>(DEFAULT_VISIBILITY);
 
   useEffect(() => {
     if (!busy) setSending(false);
@@ -89,6 +97,28 @@ export function SummaryCard({ rows, busy, error, onEdit, onBack, onApprove, onRe
           })}
         </ul>
       )}
+      {rows.length > 0 && (
+        <fieldset className="choices visibility" aria-describedby="visibility-note">
+          <legend className="visibility__legend">Who may see your words?</legend>
+          {VISIBILITY_CHOICES.map((choice) => (
+            <label key={choice.value} className={choice.value === visibility ? 'choice choice--on' : 'choice'}>
+              <input
+                type="radio"
+                name="visibility"
+                value={choice.value}
+                checked={choice.value === visibility}
+                disabled={busy}
+                onChange={() => setVisibility(choice.value)}
+              />
+              <span>{choice.label}</span>
+            </label>
+          ))}
+          <p id="visibility-note" className="note">
+            Either way your account is counted and NUSSU reads it. With other students, the first line of “What happened” is
+            pinned on the noticeboard that students see after sending their own account, without your reference code.
+          </p>
+        </fieldset>
+      )}
       <p className="muted">
         NUSSU's consultation team sees these fields and your replies. It does not see your name or student ID. Nothing has been sent.
       </p>
@@ -98,7 +128,7 @@ export function SummaryCard({ rows, busy, error, onEdit, onBack, onApprove, onRe
           label: sending ? 'Sending…' : 'Approve and send',
           onClick: () => {
             setSending(true);
-            onApprove();
+            onApprove(visibility);
           },
           disabled: busy || rows.length === 0,
         }}

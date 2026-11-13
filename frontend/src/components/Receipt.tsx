@@ -3,7 +3,7 @@ import type { Aggregate, Consultation, SummaryRow } from '../api/client.ts';
 import { layoutBoard } from '../boardLayout.ts';
 import { consentRows } from '../copy.ts';
 import { applyEvent, MOMENT_START, momentEnd, momentTimeline, reducedMotion, type MomentState } from '../motion.ts';
-import { awaitingReview, denominatorLine, placementLines, youExcerptOf } from '../receiptLines.ts';
+import { awaitingReview, denominatorLine, placementLines, visibilityLine, youExcerptOf } from '../receiptLines.ts';
 import { themeLabel, themeShort } from '../themeLabel.ts';
 import { Board } from './Board.tsx';
 import { Counter } from './Counter.tsx';
@@ -127,6 +127,7 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
           <p className={playing && !closed ? 'receipt__closing' : 'receipt__closing is-on'}>{aggregate.closing_line}</p>
           <div className="receipt__facts">
             <p className="body">Theme: {themeLabel(aggregate.theme)}</p>
+            {aggregate.visibility && <p className="body">{visibilityLine(aggregate.visibility)}</p>}
             {placementLines(aggregate).map((line) => (
               <p key={line} className="body">{line}</p>
             ))}
@@ -188,9 +189,9 @@ export function Receipt({ consultation, account, aggregate, summary, withdrawn, 
       <section className="receipt__card" aria-labelledby="receipt-next">
         <h2 id="receipt-next">What happens next</h2>
         <p className="body">
-          Being included here is not a decision. NUSSU reviews the grouping, then may raise it with the office that runs the
-          shuttle, ask for more, or explain why it can't act. The update will say what was raised, what changed, and what did
-          not.
+          Being included here is not a decision. NUSSU reviews the grouping, then may raise it with the office
+          responsible, ask for more, or explain why it can't act. The update will say what was raised, what changed, and
+          what did not.
         </p>
 
         {!withdrawn && (

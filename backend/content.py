@@ -4,13 +4,55 @@
 # Product name used in agent copy. Change here only when the naming decision is made.
 PRODUCT_NAME = "Kopichat"
 
-CONSULTATION = {
-    "id": "campus-visitors-2026",
-    "title": "Campus visitors and student experience",
-    "why": "To understand how visitor presence on campus is affecting students' day-to-day experience.",
-    "closing_date": "12 November 2026",
-    "overall_options": ["Positively", "Negatively", "Mixed", "No noticeable effect"],
+# Every consultation shares these answers to the overall question.
+OVERALL_OPTIONS = ["Positively", "Negatively", "Mixed", "No noticeable effect"]
+
+# Placeholder closing date for both fictional consultations. NUSSU has not set one.
+CLOSING_DATE = "30 November 2026"
+
+# The consultations, by id. `topic` is the short name a link carries (?topic=study); `themes` are the headings an
+# approved account is filed under.
+CONSULTATIONS: dict[str, dict] = {
+    "campus-visitors-2026": {
+        "id": "campus-visitors-2026",
+        "topic": "visitors",
+        "title": "Campus visitors and student experience",
+        "why": "To understand how visitor presence on campus is affecting students' day-to-day experience.",
+        "closing_date": CLOSING_DATE,
+        "overall_question": "Overall, how has campus visitor presence affected your experience recently?",
+        "overall_options": OVERALL_OPTIONS,
+    },
+    "study-spaces-2026": {
+        "id": "study-spaces-2026",
+        "topic": "study",
+        "title": "Study spaces during reading week and exams",
+        "why": "To understand what finding a place to study is like for students during reading week and exams.",
+        "closing_date": CLOSING_DATE,
+        "overall_question": "Overall, how has finding a place to study during reading week and exams affected you?",
+        "overall_options": OVERALL_OPTIONS,
+    },
 }
+DEFAULT_CONSULTATION_ID = "campus-visitors-2026"
+# The consultation a link without ?topic= opens, and the one the demo walkthrough uses.
+CONSULTATION = CONSULTATIONS[DEFAULT_CONSULTATION_ID]
+
+
+def consultation(consultation_id: str | None) -> dict:
+    """The consultation with this id; the default one for an id this app does not know."""
+    return CONSULTATIONS.get(consultation_id or "", CONSULTATION)
+
+
+def consultation_for_topic(topic: str | None) -> dict:
+    """The consultation a link's ?topic= names, by short name or id; the default one when it names none."""
+    wanted = (topic or "").strip().lower()
+    for c in CONSULTATIONS.values():
+        if wanted in (c["topic"], c["id"]):
+            return c
+    return CONSULTATION
+
+
+# Said on the consent screen of the chat and of the form, in the same words.
+INVITATION = "Good, bad, no-effect and not-sure experiences are all welcome."
 
 OPENING = "In your own words, what's been happening? A recent example helps most."
 
@@ -72,6 +114,26 @@ THEMES: dict[str, str] = {
     "needs_review": "Needs review: ambiguous; a reviewer decides.",
 }
 
+# Themes of the study-spaces consultation. Keys differ from the visitors themes so a label is never ambiguous.
+STUDY_THEMES: dict[str, str] = {
+    "seats": "Finding a seat: full libraries and study rooms, time spent searching, seats held with belongings.",
+    "hours": "Opening hours and access: closing times, overnight spaces, room booking, card access.",
+    "conditions": "Conditions in the space: noise, temperature, power sockets, Wi-Fi, lighting.",
+    "other": THEMES["other"],
+    "needs_review": THEMES["needs_review"],
+}
+
+THEMES_BY_CONSULTATION: dict[str, dict[str, str]] = {
+    "campus-visitors-2026": THEMES,
+    "study-spaces-2026": STUDY_THEMES,
+}
+ALL_THEMES: dict[str, str] = {**STUDY_THEMES, **THEMES}
+
+
+def themes_for(consultation_id: str | None) -> dict[str, str]:
+    return THEMES_BY_CONSULTATION.get(consultation_id or "", THEMES)
+
+
 # Summary fields in the order the storyboard shows them: (key, label).
 SUMMARY_FIELDS: list[tuple[str, str]] = [
     ("overall", "Overall view"),
@@ -83,4 +145,19 @@ SUMMARY_FIELDS: list[tuple[str, str]] = [
     ("basis", "How you know"),
     ("suggestion", "Suggestion"),
     ("feeling", "Feeling, in your words"),
+]
+
+# Who sees an approved account's words. "nussu": the consultation team only. "board": also other students, as a slip
+# on the receipt's noticeboard. Either way the account is counted and NUSSU reads it.
+VISIBILITY = ("nussu", "board")
+DEFAULT_VISIBILITY = "nussu"
+
+# The matched form the user study compares the chat against: the same five schema questions as fixed fields, in a
+# fixed order, with no follow-ups. (dimension, summary row it fills, label, hint)
+FORM_FIELDS: list[tuple[str, str, str, str]] = [
+    ("q1_what", "what", "What happened?", "In your own words. A recent example helps most."),
+    ("q2_often", "often", "How often does it happen?", "For example how many times, and over what period."),
+    ("q3_effect", "effect", "How did it affect you?", "You can say it had no effect."),
+    ("q4_basis", "basis", "Did this happen to you, or did you see it or hear about it?", ""),
+    ("q5_better", "suggestion", "What would a better experience look like?", "Optional."),
 ]

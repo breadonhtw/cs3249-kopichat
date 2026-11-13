@@ -1,9 +1,25 @@
 import { useState } from 'react';
 import type { Consultation } from '../api/client.ts';
-import { consentRows } from '../copy.ts';
+import { consentRows, INVITATION, type Channel } from '../copy.ts';
 import { ActionPair } from './ActionPair.tsx';
 
-type Props = { consultation: Consultation; busy: boolean; onAgree: () => void };
+type Props = { consultation: Consultation; busy: boolean; onAgree: () => void; channel?: Channel };
+
+/** The three facts that differ between the chat and the form, because the same sentence would be untrue of one of them. */
+export function channelFacts(channel: Channel): { questions: string; readers: string; sent: string } {
+  if (channel === 'form') {
+    return {
+      questions: '5 written questions on one page. You can leave any of them empty.',
+      readers: 'NUSSU’s consultation team. No name or student ID is collected.',
+      sent: 'Only when you press Submit on the review page. Nothing before that.',
+    };
+  }
+  return {
+    questions: 'Up to 5 short follow-ups, usually fewer. Kopichat is an AI: it may misunderstand you, and you can correct it.',
+    readers: 'NUSSU’s consultation team and an AI service. Other students only if you choose so before sending. No name or student ID is collected.',
+    sent: 'Only when you approve the summary. Nothing before that.',
+  };
+}
 
 /** The line shown after "Not now". A missing or placeholder closing date ("[...]") is left out. */
 export function declinedLine(closingDate: string | undefined | null): string {
@@ -53,7 +69,8 @@ function Chevron() {
  * equal weight. One affirmative button captures consent; there is no second confirmation. On a phone it stacks in that
  * order; at laptop width the notice stands beside the question and the answers align with its foot.
  */
-export function ConsentCard({ consultation, busy, onAgree }: Props) {
+export function ConsentCard({ consultation, busy, onAgree, channel = 'chat' }: Props) {
+  const facts = channelFacts(channel);
   const [declined, setDeclined] = useState(false);
 
   if (declined) {
@@ -65,7 +82,7 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
   }
 
   // The notice carries how findings are used and stopping; the other rows are on the notice's own lines.
-  const more = consentRows(consultation.why, consultation.closing_date).filter(
+  const more = consentRows(consultation.why, consultation.closing_date, channel).filter(
     (row) => row.title !== 'Why NUSSU is asking' && row.title !== 'Who can see your responses',
   );
   const closing = consultation.closing_date?.trim();
@@ -77,6 +94,7 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
       <div className="consent__head">
         <h1 id="consent-question" className="consent__question">{consentQuestion(consultation.title)}</h1>
         <p className="body">{valueLine(consultation.why)}</p>
+        <p className="body">{INVITATION}</p>
       </div>
 
       <div className="consent__answer">
@@ -94,9 +112,9 @@ export function ConsentCard({ consultation, busy, onAgree }: Props) {
           <div className="facts__row"><dt>Asked by</dt><dd>NUSSU</dd></div>
           {closes && <div className="facts__row"><dt>Closes</dt><dd>{closes}</dd></div>}
           <div className="facts__row"><dt>Takes</dt><dd>5 min</dd></div>
-          <div className="facts__row"><dt>Questions</dt><dd>Up to 5 short follow-ups, usually fewer. Kopichat is an AI: it may misunderstand you, and you can correct it.</dd></div>
-          <div className="facts__row"><dt>Who reads it</dt><dd>NUSSU’s consultation team and an AI service. No name or student ID is collected.</dd></div>
-          <div className="facts__row"><dt>Sent</dt><dd>Only when you approve the summary. Nothing before that.</dd></div>
+          <div className="facts__row"><dt>Questions</dt><dd>{facts.questions}</dd></div>
+          <div className="facts__row"><dt>Who reads it</dt><dd>{facts.readers}</dd></div>
+          <div className="facts__row"><dt>Sent</dt><dd>{facts.sent}</dd></div>
         </dl>
         <details className="row consent__more">
           <summary className="row__summary">

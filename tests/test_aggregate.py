@@ -100,7 +100,7 @@ def test_build_shape_and_projection(db):
     a = _submit(db)
     db.assign(a["id"], "transport", "Morning boarding at Kent Ridge MRT", False)
     agg = A.build(db, a["id"])
-    assert set(agg) == {"provisional", "theme", "needs_review", "group", "contributors", "seeds", "differing", "board", "coverage", "closing_line"}
+    assert set(agg) == {"provisional", "theme", "needs_review", "group", "contributors", "seeds", "differing", "board", "coverage", "closing_line", "visibility"}
     assert agg["theme"] == "transport" and agg["needs_review"] is False
     assert agg["group"]["name"] == "Morning boarding at Kent Ridge MRT" and agg["group"]["pending"] is False
     assert agg["closing_line"] == "This is what NUSSU reads before it decides what to raise."
@@ -181,7 +181,7 @@ def test_board_leaves_out_withdrawn_accounts_and_is_capped(db):
     db.withdraw("E")
     assert [b["id"] for b in A.build(db, a["id"])["board"]] == ["F"]
     for i in range(12):
-        other = db.submit(f"x{i}", {**p.new_state("campus-visitors-2026"), "approved": True}, [])
+        other = db.submit(f"x{i}", {**p.new_state("campus-visitors-2026"), "approved": True, "visibility": "board"}, [])
         db.assign(other["id"], "food", None, False)
     assert len(A.build(db, a["id"])["board"]) == A.BOARD_MAX
 

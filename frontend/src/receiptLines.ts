@@ -1,4 +1,4 @@
-import type { Aggregate, SummaryRow } from './api/client.ts';
+import type { Aggregate, SummaryRow, Visibility } from './api/client.ts';
 
 const EXCERPT_MAX = 60;
 
@@ -31,4 +31,11 @@ export function placementLines(aggregate: Pick<Aggregate, 'theme' | 'needs_revie
   if (awaitingReview(aggregate)) return ['Not grouped yet. A reviewer will place it.'];
   const { name, count } = aggregate.group;
   return [name !== null ? `Group: ${name}` : 'No group yet', others(count)];
+}
+
+/** The student's own choice of who sees their words, said back on the receipt. */
+export function visibilityLine(visibility: Visibility): string {
+  return visibility === 'board'
+    ? 'Your slip is on the noticeboard: students who send an account see its first line.'
+    : 'Only you and NUSSU see your slip. Other students see the count, not your words.';
 }

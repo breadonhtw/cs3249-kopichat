@@ -128,7 +128,7 @@ def test_new_state_shape():
     st = p.new_state("c")
     assert p.new_state("campus-visitors-2026")["consultation_id"] == "campus-visitors-2026"
     assert set(st) == {"consultation_id", "dims", "overall", "phase", "follow_ups_used", "last_target", "pending_question", "question_source", "interpretation",
-                       "resolved_dates", "edits", "approved", "transcript", "last_action", "stopped", "asked", "feeling"}
+                       "resolved_dates", "edits", "approved", "transcript", "last_action", "stopped", "asked", "feeling", "visibility"}
     assert st["asked"] == [] and st["feeling"] is None
     assert st["phase"] == "consent" and st["approved"] is False and st["stopped"] is None and st["follow_ups_used"] == 0
 

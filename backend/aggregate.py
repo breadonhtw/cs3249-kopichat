@@ -22,13 +22,14 @@ def classify(account: dict, group_names: list[str]) -> dict:
     """Propose {theme, group, needs_review} for an approved account. Never raises."""
     if not llm.enabled():
         return _fallback()
+    themes = content.themes_for(account.get("consultation_id"))
     messages = [{"role": "user", "content": prompts.classify_turn(account, group_names)}]
     try:
-        raw = llm.chat_json(prompts.CLASSIFY_SYSTEM, messages, max_tokens=CLASSIFY_MAX_TOKENS)
+        raw = llm.chat_json(prompts.classify_system(themes), messages, max_tokens=CLASSIFY_MAX_TOKENS)
     except llm.LLMError:
         return _fallback()
     theme = raw.get("theme")
-    if not isinstance(theme, str) or theme not in content.THEMES:
+    if not isinstance(theme, str) or theme not in themes:
         return _fallback()
     return {"theme": theme, "group": _valid_group(raw.get("group"), group_names),
             "needs_review": bool(raw.get("needs_review"))}
@@ -52,7 +53,9 @@ def build(store: store_mod.Store, account_id: str) -> dict:
     if group_id:
         members = store.group_members(group_id)
         info = store.group(group_id) or {"name": None, "pending": False}
-        others = [{"id": m["id"], "excerpt": m["excerpt"]} for m in members if m["id"] != account_id]
+        # Counted whoever they are; shown only when their writer chose the noticeboard.
+        others = [{"id": m["id"], "excerpt": m["excerpt"]} for m in members
+                  if m["id"] != account_id and m["visibility"] == "board"]
         said = sum(1 for m in members if _often_score(m) == 2)
         group = {"name": PENDING_GROUP_NAME if info["pending"] else info["name"], "pending": info["pending"],
                  "count": len(members), "others": others}
@@ -62,14 +65,16 @@ def build(store: store_mod.Store, account_id: str) -> dict:
         coverage = {"said": 1 if _often_score(account) == 2 else 0, "of": 1}
     # Only the student's own theme: a canteen account is not told about buses.
     differing = [d for d in store.differing(account["consultation_id"], group_id or _NO_GROUP, account["theme"])
-                 if d["id"] != account_id]
+                 if d["id"] != account_id and d["visibility"] == "board"]
     # The rest of the board: accounts in neither the student's group nor the differing list.
     shown = {account_id, *(o["id"] for o in group["others"]), *(d["id"] for d in differing)}
     board = [{"id": b["id"], "excerpt": b["excerpt"], "theme": b["theme"]}
-             for b in store.accounts(account["consultation_id"]) if b["id"] not in shown][:BOARD_MAX]
+             for b in store.accounts(account["consultation_id"])
+             if b["id"] not in shown and b["visibility"] == "board"][:BOARD_MAX]
     return {
         "provisional": True,
         "theme": account["theme"],
+        "visibility": account["visibility"],
         "needs_review": account["needs_review"] or account["theme"] == "needs_review",
         "group": group,
         "contributors": counts["contributors"],

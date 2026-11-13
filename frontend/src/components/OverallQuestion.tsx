@@ -10,7 +10,7 @@ export function OverallQuestion({ consultation, busy, onAnswer }: Props) {
   return (
     <section className="card">
       <h1 id="overall-q" className="question">
-        Overall, how has campus visitor presence affected your experience recently?
+        {consultation.overall_question ?? 'Overall, how has campus visitor presence affected your experience recently?'}
       </h1>
       <fieldset className="choices" aria-labelledby="overall-q">
         {consultation.overall_options.map((option) => (

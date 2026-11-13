@@ -15,7 +15,11 @@ export function SummaryRowEdit({ row, busy, onSave, onCancel }: Props) {
   const input = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    input.current?.focus();
+    const el = input.current;
+    if (!el) return;
+    el.focus();
+    // The caret goes after the last word, so typing adds to the answer instead of landing in front of it.
+    el.setSelectionRange(el.value.length, el.value.length);
   }, []);
 
   return (

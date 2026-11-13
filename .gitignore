@@ -10,3 +10,6 @@ frontend/dist/
 
 # demo server logs and pids (scripts/demo)
 .demo/
+
+# User-study exports: students' words and the blind-coding key
+study-export/

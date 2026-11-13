@@ -78,7 +78,7 @@ export function SystemView({ state, previous, open, counter = '', aggregate = nu
   return (
     <aside className="sysview" aria-label="System view">
       <h2 className="sysview__title">System view</h2>
-      <p className="sysview__lede">Not shown to students. Scores are LLM-produced and not yet validated against human raters.</p>
+      <p className="sysview__lede">Not shown to students. The model extracts the spans; code computes the scores. They are not yet validated against human raters.</p>
       {state === null ? (
         <p className="sysview__line">No state yet.</p>
       ) : (

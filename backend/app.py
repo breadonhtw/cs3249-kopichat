@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -47,6 +47,11 @@ class SessionBody(BaseModel):
     session_id: str
 
 
+class OpenBody(SessionBody):
+    topic: str | None = None        # which consultation the link opens (?topic=study); the default one when empty
+    participant: str | None = None  # a study code such as P03 (?p=P03); never a name, never shown to the student
+
+
 class ConsentBody(SessionBody):
     agreed: Any = None
 
@@ -63,6 +68,14 @@ class TurnBody(SessionBody):
 
 class SubmitBody(SessionBody):
     approved: Any = None
+    visibility: str | None = None  # "nussu" or "board"; the student's choice on the summary
+
+
+class FormSubmitBody(SessionBody):
+    confirmed: Any = None
+    overall: str | None = None
+    answers: dict[str, Any] | None = None  # by dimension, as typed; an empty or missing answer is a skipped question
+    edited: list[str] | None = None        # dimensions changed on the review page
 
 
 class SummaryEdit(BaseModel):
@@ -79,6 +92,21 @@ def _session(session_id: str) -> dict:
     if session is None:
         raise HTTPException(status_code=404, detail="Unknown session.")
     return session
+
+
+def _participant(value: str | None) -> str | None:
+    """A study code from the link, cut to something safe to store: letters, digits, dash and underscore."""
+    code = "".join(ch for ch in (value or "") if ch.isalnum() or ch in "-_")[:24]
+    return code or None
+
+
+def _now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def study_mode() -> bool:
+    """KOPICHAT_STUDY=1 while the user study runs: the reset endpoint is refused, so no session can wipe the data."""
+    return os.environ.get("KOPICHAT_STUDY", "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _today() -> str:
@@ -100,18 +128,22 @@ def _sent(account: dict) -> dict:
 
 
 @app.post("/api/session")
-def create_session(body: SessionBody):
+def create_session(body: OpenBody):
     session = SESSIONS.get(body.session_id)
     if session is None:
         # After a backend restart the session is gone from memory, but its account may be stored.
         # Then the student is back at their receipt, never at a fresh journey that would resubmit it.
-        state = policy.new_state(content.CONSULTATION["id"])
         account = STORE.account_for_session(body.session_id)
+        consultation_id = account["consultation_id"] if account else content.consultation_for_topic(body.topic)["id"]
+        state = policy.new_state(consultation_id)
+        # The clock for "time from opening to confirmed submission" starts when the link is first opened.
+        state.update(opened_at=_now(), participant=_participant(body.participant))
         if account is not None:
             state.update(phase="deleted" if account["withdrawn"] else "receipt", approved=True,
-                         overall=account["overall"])
+                         overall=account["overall"], visibility=account["visibility"])
         session = SESSIONS[body.session_id] = {"state": state, "account_id": account["id"] if account else None}
-    out = {"consultation": content.CONSULTATION, "state": session["state"], "llm": llm.describe()}
+    out = {"consultation": content.consultation(session["state"]["consultation_id"]), "state": session["state"],
+           "llm": llm.describe()}
     if session["account_id"] is not None:
         out.update(_sent(STORE.get(session["account_id"])))
     return out
@@ -138,7 +170,7 @@ def overall(body: OverallBody):
         raise HTTPException(status_code=409, detail=ALREADY_SENT)
     if state["phase"] == "consent":
         raise HTTPException(status_code=409, detail="Agree to continue first.")
-    if body.value is not None and body.value not in content.CONSULTATION["overall_options"]:
+    if body.value is not None and body.value not in content.consultation(state["consultation_id"])["overall_options"]:
         raise HTTPException(status_code=400, detail="Unknown overall view.")
     state["overall"] = body.value
     return orchestrator.handle(state, None, "start_chat", _today(), session_id=body.session_id)
@@ -179,6 +211,10 @@ def submit(body: SubmitBody):
     state = session["state"]
     if state["phase"] != "summary":
         raise HTTPException(status_code=409, detail="Nothing to submit yet.")
+    if body.visibility is not None:
+        if body.visibility not in content.VISIBILITY:
+            raise HTTPException(status_code=400, detail="Unknown visibility.")
+        state["visibility"] = body.visibility
     state["approved"] = True
     account = STORE.submit(body.session_id, state, policy.build_summary(state))
     if not account["theme"]:
@@ -221,15 +257,85 @@ def contact(body: ContactBody):
 
 @app.post("/api/admin/reset")
 def admin_reset():
+    if study_mode():
+        raise HTTPException(status_code=403, detail="Reset is switched off while the study runs (KOPICHAT_STUDY).")
     STORE.reset()
     SESSIONS.clear()
     return {"ok": True}
 
 
+# The matched form: the user study's comparison condition. Same consultation, notice and five questions as the chat,
+# as fixed fields with no follow-ups and no model. Nothing is stored until /api/form/submit is called with
+# confirmed == true; before that the server holds only when the link was opened.
+def _form_fields() -> list[dict]:
+    return [{"dim": dim, "key": key, "label": label, "hint": hint} for dim, key, label, hint in content.FORM_FIELDS]
+
+
+def _form_rows(overall: str | None, answers: dict, edited: list[str]) -> list[dict]:
+    """The submission as rows, labelled like the chat's summary so both read the same when exported."""
+    labels = dict(content.SUMMARY_FIELDS)
+    rows = [{"key": "overall", "label": labels["overall"], "text": overall or "Skipped",
+             "status": "quoted" if overall else "skipped"}]
+    for dim, key, _label, _hint in content.FORM_FIELDS:
+        text = answers.get(dim)
+        text = text.strip() if isinstance(text, str) else ""
+        status = "skipped" if not text else "edited" if dim in edited else "quoted"
+        rows.append({"key": key, "label": labels[key], "text": text, "status": status})
+    return rows
+
+
+def _form_sent(sub: dict) -> dict:
+    return {"ref_code": sub["ref_code"], "rows": sub["fields"], "withdrawn": sub["withdrawn"]}
+
+
+@app.post("/api/form/open")
+def form_open(body: OpenBody):
+    sub = STORE.form_for_session(body.session_id)
+    if sub is None:
+        opened = STORE.form_open(body.session_id, content.consultation_for_topic(body.topic)["id"],
+                                 _participant(body.participant))
+        consultation_id = opened["consultation_id"]
+    else:
+        consultation_id = sub["consultation_id"]
+    out = {"consultation": content.consultation(consultation_id), "fields": _form_fields()}
+    if sub is not None:
+        out["submission"] = _form_sent(sub)
+    return out
+
+
+@app.post("/api/form/submit")
+def form_submit(body: FormSubmitBody):
+    if body.confirmed is not True:
+        raise HTTPException(status_code=400, detail="Confirmation is required before anything is stored.")
+    if STORE.form_for_session(body.session_id) is not None:
+        raise HTTPException(status_code=409, detail="This form has already been sent.")
+    if body.overall is not None and body.overall not in content.OVERALL_OPTIONS:
+        raise HTTPException(status_code=400, detail="Unknown overall view.")
+    answers = body.answers or {}
+    rows = _form_rows(body.overall, answers, body.edited or [])
+    if not any(r["key"] != "overall" and r["text"] for r in rows):
+        raise HTTPException(status_code=400, detail="Answer at least one question before sending.")
+    try:
+        sub = STORE.form_submit(body.session_id, body.overall, rows)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown session.") from None
+    return _form_sent(sub)
+
+
+@app.post("/api/form/withdraw")
+def form_withdraw(body: SessionBody):
+    try:
+        STORE.form_withdraw(body.session_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Nothing has been submitted for this session.") from None
+    return {"ok": True}
+
+
 # NUSSU reviewer view. A demo: there is no sign-in, which a real reviewer view would need.
 @app.get("/api/review/groups")
-def review_groups():
-    return {"consultation": content.CONSULTATION, "groups": strip.groups(STORE, content.CONSULTATION["id"])}
+def review_groups(topic: str | None = Query(default=None)):
+    consultation = content.consultation_for_topic(topic)
+    return {"consultation": consultation, "groups": strip.groups(STORE, consultation["id"])}
 
 
 @app.get("/api/review/locate/{ref_code}")
@@ -242,8 +348,8 @@ def review_locate(ref_code: str):
 
 
 @app.get("/api/review/strip/{group_id}")
-def review_strip(group_id: str):
-    built = strip.build(STORE, group_id)
+def review_strip(group_id: str, topic: str | None = Query(default=None)):
+    built = strip.build(STORE, group_id, content.consultation_for_topic(topic)["id"])
     if built is None:
         raise HTTPException(status_code=404, detail="No such group.")
     return built
@@ -253,6 +359,11 @@ def review_strip(group_id: str):
 if FRONTEND_DIST.is_dir():
     @app.get("/review")
     def review_page():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+
+    @app.get("/form")
+    def form_page():
         return FileResponse(FRONTEND_DIST / "index.html")
 
 

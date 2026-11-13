@@ -13,6 +13,7 @@ from pathlib import Path
 
 SEEDS_PATH = Path(__file__).with_name("seeds.json")
 EXCERPT_LEN = 60
+_BLIND_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I, so an id can be read aloud
 _JSON_COLS = ("fields", "scores", "transcript", "interpretation")
 
 _SCHEMA = """
@@ -40,7 +41,32 @@ CREATE TABLE IF NOT EXISTS accounts (
     withdrawn INTEGER NOT NULL DEFAULT 0,
     excerpt TEXT NOT NULL DEFAULT '',
     standalone INTEGER NOT NULL DEFAULT 0,
-    note TEXT
+    note TEXT,
+    visibility TEXT NOT NULL DEFAULT 'board',
+    opened_at TEXT,
+    duration_s REAL,
+    participant TEXT,
+    blind_id TEXT
+);
+CREATE TABLE IF NOT EXISTS form_sessions (
+    session_id TEXT PRIMARY KEY,
+    consultation_id TEXT NOT NULL,
+    participant TEXT,
+    opened_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS form_submissions (
+    id TEXT PRIMARY KEY,
+    ref_code TEXT UNIQUE,
+    blind_id TEXT,
+    session_id TEXT UNIQUE,
+    consultation_id TEXT NOT NULL,
+    participant TEXT,
+    opened_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    duration_s REAL NOT NULL,
+    overall TEXT,
+    fields TEXT NOT NULL,
+    withdrawn INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS contacts (
     account_id TEXT PRIMARY KEY,
@@ -49,12 +75,28 @@ CREATE TABLE IF NOT EXISTS contacts (
 """
 
 
+# Columns added to accounts after the first release. Accounts stored before the visibility choice existed were shown
+# on the noticeboard, so they keep 'board'.
+_ACCOUNT_ADDED = (("visibility", "TEXT NOT NULL DEFAULT 'board'"), ("opened_at", "TEXT"), ("duration_s", "REAL"),
+                  ("participant", "TEXT"), ("blind_id", "TEXT"))
+
+
 class NotApproved(Exception):
     """Raised when a submit is attempted before the student approved the summary."""
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _seconds(start: str | None, end: str) -> float | None:
+    """Seconds from one ISO timestamp to another, to one decimal place; None when the start is not known."""
+    if not start:
+        return None
+    try:
+        return round((datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds(), 1)
+    except ValueError:
+        return None
 
 
 class Store:
@@ -82,12 +124,18 @@ class Store:
             # a database made before groups had a pending flag gets the column
             if "pending" not in {r["name"] for r in c.execute("PRAGMA table_info(groups)")}:
                 c.execute("ALTER TABLE groups ADD COLUMN pending INTEGER NOT NULL DEFAULT 0")
+            # likewise the columns added for the user study and the visibility choice
+            have = {r["name"] for r in c.execute("PRAGMA table_info(accounts)")}
+            for name, decl in _ACCOUNT_ADDED:
+                if name not in have:
+                    c.execute(f"ALTER TABLE accounts ADD COLUMN {name} {decl}")
             if c.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0:
                 self._load_seeds(c)
 
     def reset(self) -> None:
         with self._conn() as c:
-            c.executescript("DROP TABLE IF EXISTS contacts; DROP TABLE IF EXISTS accounts; DROP TABLE IF EXISTS groups;")
+            c.executescript("DROP TABLE IF EXISTS contacts; DROP TABLE IF EXISTS accounts; DROP TABLE IF EXISTS groups;"
+                            " DROP TABLE IF EXISTS form_submissions; DROP TABLE IF EXISTS form_sessions;")
         self.init()
 
     def _load_seeds(self, c: sqlite3.Connection) -> None:
@@ -128,11 +176,23 @@ class Store:
 
     @staticmethod
     def _new_ref_code(c: sqlite3.Connection) -> str:
+        """A reference code no chat account and no form submission holds."""
         for _ in range(200):
             code = f"KR-{secrets.randbelow(10000):04d}"
-            if not c.execute("SELECT 1 FROM accounts WHERE ref_code = ?", (code,)).fetchone():
+            if not c.execute("SELECT 1 FROM accounts WHERE ref_code = ? UNION ALL"
+                             " SELECT 1 FROM form_submissions WHERE ref_code = ?", (code, code)).fetchone():
                 return code
         raise RuntimeError("no free reference codes")
+
+    @staticmethod
+    def _new_blind_id(c: sqlite3.Connection) -> str:
+        """The random id a submission is exported under for blind coding. It says nothing about the channel."""
+        for _ in range(200):
+            code = "S-" + "".join(secrets.choice(_BLIND_ALPHABET) for _ in range(5))
+            if not c.execute("SELECT 1 FROM accounts WHERE blind_id = ? UNION ALL"
+                             " SELECT 1 FROM form_submissions WHERE blind_id = ?", (code, code)).fetchone():
+                return code
+        raise RuntimeError("no free export ids")
 
     @staticmethod
     def _require(c: sqlite3.Connection, account_id: str) -> None:
@@ -152,15 +212,19 @@ class Store:
             if existing:
                 return self._account(existing)
             account_id = uuid.uuid4().hex
+            now = _now()
+            visibility = "board" if state.get("visibility") == "board" else "nussu"
             c.execute(
                 "INSERT INTO accounts (id, ref_code, session_id, consultation_id, created_at, overall, fields, scores,"
-                " transcript, interpretation, theme, group_id, needs_review, is_seed, withdrawn, excerpt)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, 0, 0, ?)",
-                (account_id, self._new_ref_code(c), session_id, state["consultation_id"], _now(), state.get("overall"),
+                " transcript, interpretation, theme, group_id, needs_review, is_seed, withdrawn, excerpt,"
+                " visibility, opened_at, duration_s, participant, blind_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, 0, 0, ?, ?, ?, ?, ?, ?)",
+                (account_id, self._new_ref_code(c), session_id, state["consultation_id"], now, state.get("overall"),
                  json.dumps(summary),
                  json.dumps({d: {"score": v["score"], "state": v["state"]} for d, v in state["dims"].items()}),
                  json.dumps(state.get("transcript", [])), json.dumps(state.get("interpretation", {})),
-                 what[:EXCERPT_LEN]))
+                 what[:EXCERPT_LEN], visibility, state.get("opened_at"), _seconds(state.get("opened_at"), now),
+                 state.get("participant"), self._new_blind_id(c)))
             return self._account(c.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone())
 
     def assign(self, account_id: str, theme: str, group_name: str | None, needs_review: bool,
@@ -259,10 +323,10 @@ class Store:
         return [self._account(r) for r in rows]
 
     def accounts(self, consultation_id: str) -> list[dict]:
-        """Every account still in the consultation, oldest first: id, excerpt and theme only."""
+        """Every account still in the consultation, oldest first: id, excerpt, theme and visibility only."""
         with self._conn() as c:
-            rows = c.execute("SELECT id, excerpt, theme FROM accounts WHERE consultation_id = ? AND withdrawn = 0"
-                             " ORDER BY created_at, id", (consultation_id,)).fetchall()
+            rows = c.execute("SELECT id, excerpt, theme, visibility FROM accounts WHERE consultation_id = ?"
+                             " AND withdrawn = 0 ORDER BY created_at, id", (consultation_id,)).fetchall()
         return [dict(r) for r in rows]
 
     def differing(self, consultation_id: str, exclude_group_id: str | None, theme: str | None = None) -> list[dict]:
@@ -281,5 +345,66 @@ class Store:
             effect = next((f for f in a["fields"] if f.get("key") == "effect"), None)
             if a["standalone"] or (effect and effect.get("status") == "explicit_none"):
                 out.append({"id": a["id"], "excerpt": a["excerpt"], "note": a["note"] or "no effect reported",
-                            "theme": a["theme"], "ref_code": a["ref_code"]})
+                            "theme": a["theme"], "ref_code": a["ref_code"], "visibility": a["visibility"]})
         return out
+
+    def submitted(self) -> list[dict]:
+        """Every account a student sent through the chat and has not withdrawn, oldest first. Seeds are left out."""
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM accounts WHERE is_seed = 0 AND withdrawn = 0 ORDER BY created_at, id").fetchall()
+        return [self._account(r) for r in rows]
+
+    # --- the matched form (user study) -------------------------------------
+    # A form submission is kept apart from the chat's accounts: it is never classified, grouped or shown on a board.
+
+    @staticmethod
+    def _form(row: sqlite3.Row) -> dict:
+        d = dict(row)
+        d["fields"] = json.loads(d["fields"])
+        d["withdrawn"] = bool(d["withdrawn"])
+        return d
+
+    def form_open(self, session_id: str, consultation_id: str, participant: str | None) -> dict:
+        """Note when this form session was first opened. The first opening wins: a reload does not restart the clock."""
+        with self._conn() as c:
+            c.execute("INSERT OR IGNORE INTO form_sessions (session_id, consultation_id, participant, opened_at)"
+                      " VALUES (?, ?, ?, ?)", (session_id, consultation_id, participant, _now()))
+            return dict(c.execute("SELECT * FROM form_sessions WHERE session_id = ?", (session_id,)).fetchone())
+
+    def form_submit(self, session_id: str, overall: str | None, fields: list[dict]) -> dict:
+        """Store the confirmed form. Idempotent per session_id. The session must have been opened first."""
+        with self._conn() as c:
+            c.execute("BEGIN IMMEDIATE")
+            existing = c.execute("SELECT * FROM form_submissions WHERE session_id = ?", (session_id,)).fetchone()
+            if existing:
+                return self._form(existing)
+            opened = c.execute("SELECT * FROM form_sessions WHERE session_id = ?", (session_id,)).fetchone()
+            if opened is None:
+                raise KeyError(session_id)
+            now = _now()
+            sub_id = uuid.uuid4().hex
+            c.execute(
+                "INSERT INTO form_submissions (id, ref_code, blind_id, session_id, consultation_id, participant,"
+                " opened_at, created_at, duration_s, overall, fields) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (sub_id, self._new_ref_code(c), self._new_blind_id(c), session_id, opened["consultation_id"],
+                 opened["participant"], opened["opened_at"], now, _seconds(opened["opened_at"], now) or 0.0,
+                 overall, json.dumps(fields)))
+            return self._form(c.execute("SELECT * FROM form_submissions WHERE id = ?", (sub_id,)).fetchone())
+
+    def form_for_session(self, session_id: str) -> dict | None:
+        """The form this session submitted, withdrawn or not, or None."""
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM form_submissions WHERE session_id = ?", (session_id,)).fetchone()
+        return self._form(row) if row else None
+
+    def form_withdraw(self, session_id: str) -> None:
+        with self._conn() as c:
+            if not c.execute("SELECT 1 FROM form_submissions WHERE session_id = ?", (session_id,)).fetchone():
+                raise KeyError(session_id)
+            c.execute("UPDATE form_submissions SET withdrawn = 1 WHERE session_id = ?", (session_id,))
+
+    def form_submitted(self) -> list[dict]:
+        """Every form submission not withdrawn, oldest first."""
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM form_submissions WHERE withdrawn = 0 ORDER BY created_at, id").fetchall()
+        return [self._form(r) for r in rows]

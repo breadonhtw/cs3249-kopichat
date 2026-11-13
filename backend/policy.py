@@ -31,6 +31,7 @@ def new_state(consultation_id: str) -> dict:
         "edits": {},
         "feeling": None,
         "approved": False,
+        "visibility": content.DEFAULT_VISIBILITY,  # who sees the approved words; the student chooses on the summary
         "transcript": [],
         "last_action": None,
         "stopped": None,
@@ -123,10 +124,16 @@ def next_target(state: dict) -> tuple[str, str] | None:
     return None
 
 
+# A time the student gave that reads as a morning: "this morning", "8.45am", "around 9 a.m.".
+_MORNING = re.compile(r"morning|\b\d{1,2}(?:[.:]\d{2})?\s*a\.?m\b", re.IGNORECASE)
+
+
 def compose_question(target: tuple[str, str], state: dict | None = None) -> str:
-    """Fixed question text. The consequence question drops "that morning" when no time is known."""
+    """Fixed question text. The consequence question says "that morning" only when the student's own time was a
+    morning; with no time, or an afternoon or night, it says "that time"."""
     if state is not None and target in content.QUESTIONS_GENERIC:
-        if _span(state["dims"]["q1_what"]["checks"].get("time")) is None:
+        time = _span(state["dims"]["q1_what"]["checks"].get("time"))
+        if time is None or not _MORNING.search(time):
             return content.QUESTIONS_GENERIC[target]
     return content.QUESTIONS[target]
 

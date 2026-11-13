@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiError, chipAction } from './api/client.ts';
 import { DEFAULT_CHIPS, optionRequest } from './chips.ts';
-import type { Aggregate, Consultation, FallbackAnswers, Phase, ServerState, SessionInfo, SummaryRow, TurnResult, createClient } from './api/client.ts';
+import type { Aggregate, Consultation, FallbackAnswers, Phase, ServerState, SessionInfo, SummaryRow, TurnResult, Visibility, createClient } from './api/client.ts';
 
 export type Client = ReturnType<typeof createClient>;
 
@@ -375,8 +375,8 @@ export function useSession(client: Client) {
     edit: (key: string, text: string) => run(async (emit) => {
       emit({ type: 'summary', rows: (await client.editSummary(key, text)).rows });
     }),
-    approve: () => run(async (emit) => {
-      const r = await client.submit();
+    approve: (visibility?: Visibility) => run(async (emit) => {
+      const r = await client.submit(visibility);
       emit({ type: 'submitted', account: r.account, aggregate: r.aggregate });
     }),
     /** True once the server has withdrawn the account. On failure `onError` gets the message and the global error is left alone. */
