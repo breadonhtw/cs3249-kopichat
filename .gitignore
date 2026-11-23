@@ -13,3 +13,4 @@ frontend/dist/
 
 # User-study exports: students' words and the blind-coding key
 study-export/
+probe-results/
