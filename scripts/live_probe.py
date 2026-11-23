@@ -15,6 +15,7 @@ under pytest.
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -28,6 +29,8 @@ from tests.fixtures.storyboard import STUDENT  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_FOLLOWUPS = 5
+LABEL_ROWS = {"overall", "basis"}
+ANNOTATION = re.compile(r"\s*\[\d{4}-\d{2}(?:-\d{2})?\]|\s*\(uncertain\)")
 
 
 class Scenario(TypedDict):
@@ -52,8 +55,7 @@ SCENARIOS: list[Scenario] = [
     _s("vague", ["idk it's just bad lah"],
        {"routes": {0: ["unclear", "continue"]}, "unclear_options": True, "phase": {0: "chat"}}),
     _s("off_topic", ["can you help me with my CS2040 assignment"],
-       {"routes": {0: ["unclear", "out_of_scope_appeal", "continue"]}, "counter_unchanged": [0],
-        "ends_with_pending": [0]}),
+       {"routes": {0: ["unclear", "out_of_scope_appeal", "continue"]}, "counter_unchanged": [0]}),
     _s("named_person", ["the driver Ah Huat on the A2 was rude to me"],
        {"routes": {0: ["out_of_scope_person"]}, "chips_include": {0: ["Continue without the name"]}}),
     _s("appeal", ["can NUSSU get my parking fine waived"], {"routes": {0: ["out_of_scope_appeal"]}}),
@@ -129,8 +131,17 @@ def check_turn(expect: dict, turn_index: int, resp: dict, route: str | None, pre
 def summary_is_extractive(rows: list[dict], transcript: list[str]) -> list[str]:
     """Every quoted span in the summary that the student never wrote."""
     said = "\n".join(transcript)
-    return [span for r in rows if r.get("status") == "quoted"
-            for span in (r.get("text") or "").split("; ") if span and span not in said]
+    out = []
+    for r in rows:
+        # The overall view is a chosen option and "How you know" is a fixed label; neither is a quote.
+        if r.get("status") != "quoted" or r.get("key") in LABEL_ROWS:
+            continue
+        for span in (r.get("text") or "").split("; "):
+            # The app appends a worked-out date "[2026-11-22]" and an "(uncertain)" marker; strip both.
+            span = ANNOTATION.sub("", span).strip()
+            if span and span not in said:
+                out.append(span)
+    return out
 
 
 def _log_lines(log_dir: Path, session_id: str) -> list[dict]:

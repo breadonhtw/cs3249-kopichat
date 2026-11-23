@@ -36,6 +36,15 @@ def test_summary_is_extractive_reports_invented_span():
     assert lp.summary_is_extractive(rows, ["the packed bus at 8.45"]) == ["a fire"]
 
 
+def test_summary_check_ignores_app_labels_and_annotations():
+    from scripts import live_probe as lp
+    rows = [{"key": "overall", "label": "Overall view", "text": "Negatively", "status": "quoted"},
+            {"key": "basis", "label": "How you know", "text": "Experienced it yourself", "status": "quoted"},
+            {"key": "what", "label": "What happened", "text": "yesterday, around 8.45am [2026-11-22]", "status": "quoted"},
+            {"key": "cause", "label": "Cause", "text": "a group with a guide (uncertain)", "status": "quoted"}]
+    assert lp.summary_is_extractive(rows, ["yesterday, around 8.45am I saw a group with a guide"]) == []
+
+
 def test_main_refuses_under_pytest():
     from scripts import live_probe as lp
     assert lp.main(["--runs", "1"]) != 0
