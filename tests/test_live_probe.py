@@ -76,3 +76,25 @@ def test_probe_unavailable_keeps_counter(client, monkeypatch):
     assert t2["unavailable"] is True and t2["state"]["follow_ups_used"] == used and t2["phase"] == "chat"
     t3 = client.post("/api/turn", json={"session_id": "u", "message": STUDENT[1]}).json()
     assert t3["unavailable"] is False and t3["state"]["follow_ups_used"] == used + 1
+
+
+def test_vague_routed_continue_that_spends_a_follow_up_fails():
+    from scripts import live_probe as lp
+    vague = next(s for s in lp.SCENARIOS if s["name"] == "vague")["expect"]
+    resp = {"phase": "chat", "state": {"follow_ups_used": 1}, "options": []}
+    assert lp.check_turn(vague, 0, resp, "continue", prev_used=0)
+
+
+def test_a_turn_over_eight_seconds_is_flagged():
+    from scripts import live_probe as lp
+    resp = {"phase": "chat", "state": {"follow_ups_used": 1}, "options": []}
+    assert any("slow" in f for f in lp.check_turn({}, 0, resp, "continue", elapsed=8.5))
+    assert lp.check_turn({}, 0, resp, "continue", elapsed=7.9) == []
+
+
+def test_basis_row_from_the_model_is_checked_but_fixed_labels_are_not():
+    from scripts import live_probe as lp
+    model = [{"key": "basis", "label": "How you know", "text": "my roommate told me", "status": "quoted"}]
+    fixed = [{"key": "basis", "label": "How you know", "text": "Experienced it yourself; Saw it yourself", "status": "quoted"}]
+    assert lp.summary_is_extractive(model, ["the bus was full"]) == ["my roommate told me"]
+    assert lp.summary_is_extractive(fixed, ["the bus was full"]) == []

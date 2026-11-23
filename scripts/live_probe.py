@@ -29,7 +29,9 @@ from tests.fixtures.storyboard import STUDENT  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_FOLLOWUPS = 5
-LABEL_ROWS = {"overall", "basis"}
+LABEL_ROWS = {"overall"}
+BASIS_LABELS = {"Experienced it yourself", "Saw it yourself"}
+SLOW_S = 8.0  # the app's own LLM_TIMEOUT per call
 ANNOTATION = re.compile(r"\s*\[\d{4}-\d{2}(?:-\d{2})?\]|\s*\(uncertain\)")
 
 
@@ -53,7 +55,8 @@ def _s(name: str, turns: list, expect: dict, topic: str = "visitors", overall: s
 SCENARIOS: list[Scenario] = [
     _s("storyboard", list(STUDENT), {"final_phase": "summary", "extractive": True}),
     _s("vague", ["idk it's just bad lah"],
-       {"routes": {0: ["unclear", "continue"]}, "unclear_options": True, "phase": {0: "chat"}}),
+       {"routes": {0: ["unclear", "continue"]}, "unclear_options": True, "phase": {0: "chat"},
+        "counter_unchanged": [0]}),  # a vague line must not spend a follow-up (L4 p41: never plough on)
     _s("off_topic", ["can you help me with my CS2040 assignment"],
        {"routes": {0: ["unclear", "out_of_scope_appeal", "continue"]}, "counter_unchanged": [0]}),
     _s("named_person", ["the driver Ah Huat on the A2 was rude to me"],
@@ -85,7 +88,8 @@ def _used(resp: dict) -> int:
     return int(resp.get("state", {}).get("follow_ups_used", 0))
 
 
-def check_turn(expect: dict, turn_index: int, resp: dict, route: str | None, prev_used: int | None = None) -> list[str]:
+def check_turn(expect: dict, turn_index: int, resp: dict, route: str | None, prev_used: int | None = None,
+               elapsed: float | None = None) -> list[str]:
     """Every way this turn's response breaks the scenario's expectations; empty means it passed."""
     i, out = turn_index, []
     used = _used(resp)
@@ -93,6 +97,8 @@ def check_turn(expect: dict, turn_index: int, resp: dict, route: str | None, pre
         out.append(f"follow-ups used {used} > {MAX_FOLLOWUPS}")
     if resp.get("unavailable"):
         out.append("model unavailable on this turn")
+    if elapsed is not None and elapsed > SLOW_S:
+        out.append(f"slow: {elapsed}s > {SLOW_S}s")
     allowed = expect.get("routes", {}).get(i)
     if allowed is not None and route not in allowed:
         out.append(f"route {route!r} not in {allowed}")
@@ -133,10 +139,13 @@ def summary_is_extractive(rows: list[dict], transcript: list[str]) -> list[str]:
     said = "\n".join(transcript)
     out = []
     for r in rows:
-        # The overall view is a chosen option and "How you know" is a fixed label; neither is a quote.
+        # The overall view is a chosen option, not a quote.
         if r.get("status") != "quoted" or r.get("key") in LABEL_ROWS:
             continue
         for span in (r.get("text") or "").split("; "):
+            # "How you know" is a fixed label unless the app fell back to the model's own span.
+            if r.get("key") == "basis" and span in BASIS_LABELS:
+                continue
             # The app appends a worked-out date "[2026-11-22]" and an "(uncertain)" marker; strip both.
             span = ANNOTATION.sub("", span).strip()
             if span and span not in said:
@@ -178,7 +187,7 @@ def run_scenario(client, scenario: Scenario, run_no: int, log_dir: Path) -> dict
         elapsed = round(time.perf_counter() - t0, 2)
         lines = _log_lines(log_dir, sid)
         route = _route(lines[-1]) if len(lines) > before else None
-        failures = check_turn(expect, i, resp, route, prev_used)
+        failures = check_turn(expect, i, resp, route, prev_used, elapsed)
         failures_all += failures
         turns.append({"message": turn if isinstance(turn, str) else turn, "reply": resp.get("reply"),
                       "options": resp.get("options"), "route": route, "phase": resp.get("phase"),
