@@ -21,7 +21,17 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Open `.env` and paste your SoCLaaS key after `OPENAI_API_KEY=` and set `LLM_MODEL=default`, or paste an Anthropic key after `ANTHROPIC_API_KEY=` and leave `LLM_MODEL` empty. For a personal OpenAI key, also set `OPENAI_BASE_URL=https://api.openai.com/v1` and set `LLM_MODEL` to one of your account's models. With `LLM_PROVIDER` empty the app uses whichever key is set (Anthropic first). Keys go in `.env` only, never in `backend/llm.py`. Then, still from the repository root, install the frontend:
+Open `.env` and paste your SoCLaaS key after `OPENAI_API_KEY=` and set `LLM_MODEL=default`, or paste an Anthropic key after `ANTHROPIC_API_KEY=` and leave `LLM_MODEL` empty. For a personal OpenAI key, also set `OPENAI_BASE_URL=https://api.openai.com/v1` and set `LLM_MODEL` to one of your account's models. With `LLM_PROVIDER` empty the app uses whichever key is set (Anthropic first). Keys go in `.env` only, never in `backend/llm.py`.
+
+Which model you use changes how well the chat handles unusual messages. The user study and the system tests ran on Anthropic's `claude-sonnet-5-5`. On SoCLaaS (which served `qwen3.6:35b` when tested on 23 November 2026), the full chat still works end to end, and the code's own guarantees still hold:
+- a crisis message gets the fixed reply,
+- an instruction aimed at the app cannot send the account,
+- there are never more than five follow-ups,
+- the summary only quotes the student.
+
+But the routing that depends on the model's reading does not hold on SoCLaaS. Off-topic requests, vague replies and named individuals are treated as experiences and use up a follow-up. Some replies also take just over 8 seconds. On SoCLaaS, add `LLM_TIMEOUT=15` to `.env` so a slow reply is not shown as "The assistant is unavailable right now".
+
+Then, still from the repository root, install the frontend:
 
 ```
 npm --prefix frontend run setup
@@ -154,3 +164,5 @@ Before approving, the student chooses who may see their words. The default is NU
 - The chat logs keep students' raw messages and the raw model output.
 - The noticeboard on the receipt shows at most eight slips (the student's, two from the group, then differing accounts and other themes) and says how many more there are. Excerpts on slips are cut at three lines; the full text is under "What was sent".
 - The unclear options offered when a message is ambiguous are written by the language model, so they can be imperfect. The student can always type their own answer instead.
+- Routing off-topic requests, vague replies and named individuals depends on the model. It was reliable on `claude-sonnet-5-5` and unreliable on SoCLaaS's model (see Setup).
+- Asked "are you a real person?", the chat offers options instead of saying directly that it is an AI. The consent notice says so before the chat starts.
